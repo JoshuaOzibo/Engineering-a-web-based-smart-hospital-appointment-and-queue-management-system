@@ -33,7 +33,7 @@ function Landing() {
             <a href="#trust" className="hover:text-foreground">About</a>
           </nav>
           <div className="flex items-center gap-2">
-            <Link to="/dashboard" className="hidden sm:inline-flex h-10 items-center px-4 rounded-lg text-sm font-medium text-foreground hover:bg-muted">Sign in</Link>
+            <Link to="/login" className="hidden sm:inline-flex h-10 items-center px-4 rounded-lg text-sm font-medium text-foreground hover:bg-muted">Sign in</Link>
             <Link to="/book" className="inline-flex h-10 items-center px-4 rounded-lg text-sm font-medium bg-primary text-primary-foreground hover:opacity-95">Book appointment</Link>
           </div>
         </div>

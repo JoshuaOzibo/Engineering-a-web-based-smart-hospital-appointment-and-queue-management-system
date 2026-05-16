@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as QueueRouteImport } from './routes/queue'
 import { Route as NotificationsRouteImport } from './routes/notifications'
+import { Route as LoginRouteImport } from './routes/login'
 import { Route as DoctorRouteImport } from './routes/doctor'
 import { Route as DashboardRouteImport } from './routes/dashboard'
 import { Route as BookRouteImport } from './routes/book'
@@ -25,6 +26,11 @@ const QueueRoute = QueueRouteImport.update({
 const NotificationsRoute = NotificationsRouteImport.update({
   id: '/notifications',
   path: '/notifications',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LoginRoute = LoginRouteImport.update({
+  id: '/login',
+  path: '/login',
   getParentRoute: () => rootRouteImport,
 } as any)
 const DoctorRoute = DoctorRouteImport.update({
@@ -59,6 +65,7 @@ export interface FileRoutesByFullPath {
   '/book': typeof BookRoute
   '/dashboard': typeof DashboardRoute
   '/doctor': typeof DoctorRoute
+  '/login': typeof LoginRoute
   '/notifications': typeof NotificationsRoute
   '/queue': typeof QueueRoute
 }
@@ -68,6 +75,7 @@ export interface FileRoutesByTo {
   '/book': typeof BookRoute
   '/dashboard': typeof DashboardRoute
   '/doctor': typeof DoctorRoute
+  '/login': typeof LoginRoute
   '/notifications': typeof NotificationsRoute
   '/queue': typeof QueueRoute
 }
@@ -78,6 +86,7 @@ export interface FileRoutesById {
   '/book': typeof BookRoute
   '/dashboard': typeof DashboardRoute
   '/doctor': typeof DoctorRoute
+  '/login': typeof LoginRoute
   '/notifications': typeof NotificationsRoute
   '/queue': typeof QueueRoute
 }
@@ -89,6 +98,7 @@ export interface FileRouteTypes {
     | '/book'
     | '/dashboard'
     | '/doctor'
+    | '/login'
     | '/notifications'
     | '/queue'
   fileRoutesByTo: FileRoutesByTo
@@ -98,6 +108,7 @@ export interface FileRouteTypes {
     | '/book'
     | '/dashboard'
     | '/doctor'
+    | '/login'
     | '/notifications'
     | '/queue'
   id:
@@ -107,6 +118,7 @@ export interface FileRouteTypes {
     | '/book'
     | '/dashboard'
     | '/doctor'
+    | '/login'
     | '/notifications'
     | '/queue'
   fileRoutesById: FileRoutesById
@@ -117,6 +129,7 @@ export interface RootRouteChildren {
   BookRoute: typeof BookRoute
   DashboardRoute: typeof DashboardRoute
   DoctorRoute: typeof DoctorRoute
+  LoginRoute: typeof LoginRoute
   NotificationsRoute: typeof NotificationsRoute
   QueueRoute: typeof QueueRoute
 }
@@ -135,6 +148,13 @@ declare module '@tanstack/react-router' {
       path: '/notifications'
       fullPath: '/notifications'
       preLoaderRoute: typeof NotificationsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/login': {
+      id: '/login'
+      path: '/login'
+      fullPath: '/login'
+      preLoaderRoute: typeof LoginRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/doctor': {
@@ -181,9 +201,20 @@ const rootRouteChildren: RootRouteChildren = {
   BookRoute: BookRoute,
   DashboardRoute: DashboardRoute,
   DoctorRoute: DoctorRoute,
+  LoginRoute: LoginRoute,
   NotificationsRoute: NotificationsRoute,
   QueueRoute: QueueRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}

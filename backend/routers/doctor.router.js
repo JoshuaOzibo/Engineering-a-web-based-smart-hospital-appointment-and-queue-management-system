@@ -12,6 +12,7 @@ doctorRouter.get("/allDoctor", async (req, res) => {
 });
 
 // Add a Doctor
+// Optionally pass `slots` as an object: { "2026-05-20": ["09:00","10:00"], ... }
 doctorRouter.post("/addDoctor", async (req, res) => {
   let {
     doctorName,
@@ -24,6 +25,8 @@ doctorRouter.post("/addDoctor", async (req, res) => {
     status,
     image,
     isAvailable,
+    rating,
+    slots, // optional — { "YYYY-MM-DD": ["HH:MM", ...] }
   } = req.body;
   try {
     let doctor = new DoctorModel({
@@ -37,16 +40,32 @@ doctorRouter.post("/addDoctor", async (req, res) => {
       status,
       image,
       isAvailable,
-      APRIL_11: ["11-12", "2-3", "4-5", "7-8"],
-      APRIL_12: ["11-12", "2-3", "4-5", "7-8"],
-      APRIL_13: ["11-12", "2-3", "4-5", "7-8"],
+      rating: rating || 0,
+      slots: slots || {}, // empty map by default; seed via PATCH /addSlots
     });
     await doctor.save();
     res.status(201).send({ msg: "Doctor has been created", doctor });
   } catch (error) {
-    res
-      .status(500)
-      .send({ msg: "Error in created doctor due to Non unique email/mob" });
+    console.error("Add doctor error:", error);
+    res.status(500).send({ msg: "Error creating doctor — check for duplicate email/phone" });
+  }
+});
+
+// PATCH add/update slots for a doctor
+// Body: { date: "2026-05-20", slots: ["09:00","09:30","10:00"] }
+doctorRouter.patch("/addSlots/:doctorId", async (req, res) => {
+  const { date, slots } = req.body;
+  if (!date || !Array.isArray(slots)) {
+    return res.status(400).send({ msg: "date (string) and slots (array) are required" });
+  }
+  try {
+    const doctor = await DoctorModel.findById(req.params.doctorId);
+    if (!doctor) return res.status(404).send({ msg: "Doctor not found" });
+    doctor.slots.set(date, slots);
+    await doctor.save();
+    res.send({ msg: `Slots set for ${date}`, doctor });
+  } catch (error) {
+    res.status(500).send({ msg: "Error updating slots", error: error.message });
   }
 });
 

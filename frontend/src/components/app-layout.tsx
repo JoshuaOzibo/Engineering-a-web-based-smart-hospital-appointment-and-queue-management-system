@@ -1,7 +1,8 @@
 import { Link, useRouterState } from "@tanstack/react-router";
-import { Calendar, LayoutDashboard, Users, Activity, Bell, Stethoscope, ShieldCheck, Hospital, Search } from "lucide-react";
+import { Calendar, LayoutDashboard, Users, Activity, Bell, Stethoscope, ShieldCheck, Hospital, Search, LogOut, LogIn } from "lucide-react";
 import { ReactNode } from "react";
 import { cn } from "@/lib/utils";
+import { useAuth } from "@/lib/auth";
 
 const nav = [
   { to: "/dashboard", label: "Overview", icon: LayoutDashboard, group: "Patient" },
@@ -14,8 +15,14 @@ const nav = [
 
 export function AppLayout({ children, title, subtitle, actions }: { children: ReactNode; title: string; subtitle?: string; actions?: ReactNode }) {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
+  const { user, isAuthenticated, logout } = useAuth();
 
   const groups = ["Patient", "Staff"] as const;
+
+  // Derive initials from name
+  const initials = user
+    ? `${user.name[0] ?? ""}${user.last_name[0] ?? ""}`.toUpperCase()
+    : "?";
 
   return (
     <div className="min-h-screen flex w-full bg-surface">
@@ -57,14 +64,32 @@ export function AppLayout({ children, title, subtitle, actions }: { children: Re
             </div>
           ))}
         </nav>
+
+        {/* User card */}
         <div className="m-3 rounded-xl border border-sidebar-border bg-card p-4">
-          <div className="flex items-center gap-3">
-            <div className="size-9 rounded-full bg-accent text-accent-foreground grid place-items-center text-sm font-semibold">SA</div>
-            <div className="leading-tight">
-              <div className="text-sm font-medium text-foreground">Sara Ahmed</div>
-              <div className="text-xs text-muted-foreground">Patient · ID 10428</div>
+          {isAuthenticated && user ? (
+            <div className="flex items-center gap-3">
+              <div className="size-9 rounded-full bg-primary text-primary-foreground grid place-items-center text-sm font-semibold">
+                {initials}
+              </div>
+              <div className="leading-tight flex-1 min-w-0">
+                <div className="text-sm font-medium text-foreground truncate">{user.name} {user.last_name}</div>
+                <div className="text-xs text-muted-foreground truncate">Patient · {user.email}</div>
+              </div>
+              <button
+                onClick={logout}
+                title="Sign out"
+                className="size-8 grid place-items-center rounded-lg hover:bg-muted text-muted-foreground"
+              >
+                <LogOut className="size-4" />
+              </button>
             </div>
-          </div>
+          ) : (
+            <Link to="/login" className="flex items-center gap-3 text-sm font-medium text-primary hover:underline">
+              <LogIn className="size-4" />
+              Sign in to your account
+            </Link>
+          )}
         </div>
       </aside>
 

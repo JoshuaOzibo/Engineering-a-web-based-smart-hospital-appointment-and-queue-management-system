@@ -3,161 +3,121 @@ const userRouter = require("express").Router();
 require("dotenv").config();
 const jwt = require("jsonwebtoken");
 const bcrypt = require("bcrypt");
-const express = require("express");
 const cors = require("cors");
-const redis = require("redis");
 const nodemailer = require("nodemailer");
 const otpGenerator = require("otp-generator");
+
 userRouter.use(cors());
+
+// Module-level OTP store (stateless per-request — good enough for single instance)
 var otp;
 
 userRouter.get("/", async (req, res) => {
   res.send({ msg: "Home Page" });
 });
 
+// ── Send OTP email ────────────────────────────────────────────────────────────
 userRouter.post("/emailVerify", async (req, res) => {
   otp = otpGenerator.generate(4, {
     upperCaseAlphabets: false,
     specialChars: false,
   });
+
   let { email } = req.body;
+
   const transporter = nodemailer.createTransport({
     service: "gmail",
     auth: {
-      user: "medistar.hospital301@gmail.com",
-      pass: "hoxilrprpqwjbnzi",
+      user: process.env.GMAIL_USER,
+      pass: process.env.GMAIL_PASS,
     },
   });
 
   const mailOptions = {
-    from: "medistar.hospital301@gmail.com",
+    from: process.env.GMAIL_USER,
     to: email,
-    subject: "Here is your OTP for Medistar Login",
-    text: otp,
+    subject: "Here is your OTP for Mediqueue Login",
+    text: `Your OTP is: ${otp}. It expires shortly — do not share it.`,
   };
 
   transporter
     .sendMail(mailOptions)
-    .then((info) => {
-      console.log(info.response);
-      res.send({ msg: "Mail has been Send", otp, email });
+    .then(() => {
+      // NOTE: OTP is NOT returned in the response — user must read their email
+      res.send({ msg: "OTP has been sent to your email", email });
     })
     .catch((e) => {
-      console.log(e);
-      res.send(e);
+      console.error("Mail error:", e);
+      res.status(500).send({ msg: "Failed to send OTP email" });
     });
 });
 
+// ── Sign Up ───────────────────────────────────────────────────────────────────
 userRouter.post("/signup", async (req, res) => {
   let { first_name, last_name, email, mobile, password } = req.body;
+
   const isPresent = await UserModel.findOne({ email });
   if (isPresent) {
-    return res.status(500).send({
-      msg: "User already registered",
-    });
+    return res.status(409).send({ msg: "User already registered" });
   }
+
   try {
     bcrypt.hash(password, 5, async (err, hash) => {
       if (err) {
-        res.status(500).send({ msg: "Error" });
-      } else {
-        const user = new UserModel({
-          first_name,
-          last_name,
-          email,
-          mobile,
-          password: hash,
-        });
-        await user.save();
-        res.status(201).send({ msg: " Signup Successfull" });
+        return res.status(500).send({ msg: "Error hashing password" });
       }
+      const user = new UserModel({
+        first_name,
+        last_name,
+        email,
+        mobile,
+        password: hash,
+      });
+      await user.save();
+      res.status(201).send({ msg: "Signup Successful" });
     });
   } catch (error) {
-    res.status(500).send({
-      msg: "Error",
-    });
+    res.status(500).send({ msg: "Error during signup" });
   }
 });
 
+// ── Sign In ───────────────────────────────────────────────────────────────────
 userRouter.post("/signin", async (req, res) => {
   let { payload, password } = req.body;
+
   try {
-    let userEmail = await UserModel.findOne({ email: payload });
-    if (!userEmail) {
-      let userMobile = await UserModel.findOne({ mobile: payload });
-      if (!userMobile) {
-        return res.status(500).send({ msg: "User not Found" });
-      } else {
-        bcrypt.compare(password, userMobile.password).then(function (result) {
-          if (result) {
-            const token = jwt.sign(
-              { userID: userMobile._id, email: userMobile.email },
-              "masai"
-            );
-            res.send({
-              message: "Login Successful",
-              token,
-              name: userMobile.first_name,
-              last_name: userMobile.last_name,
-              email: userMobile.email,
-              mobile: userMobile.mobile,
-            });
-          } else {
-            res.status(500).send({ mag: "Wrong Password" });
-          }
-        });
-      }
-    } else {
-      bcrypt.compare(password, userEmail.password).then(function (result) {
-        if (result) {
-          const token = jwt.sign(
-            { userID: userEmail._id, email: userEmail.email },
-            "masai"
-          );
-          res.send({
-            message: "Success",
-            token,
-            name: userEmail.first_name,
-            last_name: userEmail.last_name,
-            email: userEmail.email,
-            mobile: userEmail.mobile,
-          });
-        } else {
-          res.status(500).send({ mag: "Wrong Password" });
-        }
-      });
+    // Try email first, then mobile
+    let user =
+      (await UserModel.findOne({ email: payload })) ||
+      (await UserModel.findOne({ mobile: payload }));
+
+    if (!user) {
+      return res.status(404).send({ msg: "User not Found" });
     }
+
+    const result = await bcrypt.compare(password, user.password);
+    if (!result) {
+      return res.status(401).send({ msg: "Wrong Password" });
+    }
+
+    // ✅ Use process.env.key — same secret the authenticate middleware uses
+    const token = jwt.sign(
+      { userID: user._id, email: user.email },
+      process.env.key
+    );
+
+    res.send({
+      message: "Login Successful",
+      token,
+      name: user.first_name,
+      last_name: user.last_name,
+      email: user.email,
+      mobile: user.mobile,
+    });
   } catch (e) {
-    res.send({ msg: "Error in Login" });
+    console.error("Signin error:", e);
+    res.status(500).send({ msg: "Error in Login" });
   }
 });
 
-// userRouter.use(express.text());
-// const client = redis.createClient({
-//   password: process.env.redisPassword,
-//   socket: {
-//     host: process.env.redisHost,
-//     port: process.env.redisPort,
-//   },
-// });
-// client.on("error", (err) => console.log(err, "ERROR in REDIS"));
-// client.connect();
-
-// userRouter.get("/logout", async (req, res) => {
-//   const token = req.headers.authorization;
-//   // console.log(token)
-//   if (!token) {
-//     return res.status(500).send({ msg: "No Token in Headers" });
-//   }
-//   try {
-//     await client.LPUSH("token", token);
-//     // await client.lpush("token", token)
-//     res.status(200).send({ msg: "You are Logged out" });
-//   } catch (error) {
-//     return res.status(500).send({ msg: "Error in Redis" });
-//   }
-// });
-
-module.exports = {
-  userRouter,
-};
+module.exports = { userRouter };

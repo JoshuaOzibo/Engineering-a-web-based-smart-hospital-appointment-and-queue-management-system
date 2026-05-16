@@ -7,160 +7,166 @@ const nodemailer = require("nodemailer");
 
 const appointmentRouter = require("express").Router();
 
-//!! User Side OPERATION------------------------------>
-//  Get All Appointments for a Particular Patient
+// ── Nodemailer transporter (uses env vars) ────────────────────────────────────
+function createTransporter() {
+  return nodemailer.createTransport({
+    service: "gmail",
+    auth: {
+      user: process.env.GMAIL_USER,
+      pass: process.env.GMAIL_PASS,
+    },
+  });
+}
+
+// ── Slot helpers (ISO date key system) ───────────────────────────────────────
+/**
+ * Returns true if `slotTime` is in the doctor's slots map for `isoDate`.
+ * isoDate format: "YYYY-MM-DD"
+ */
+function isSlotAvailable(doctor, isoDate, slotTime) {
+  const daySlots = doctor.slots && doctor.slots.get(isoDate);
+  if (!daySlots) return false;
+  return daySlots.includes(slotTime);
+}
+
+/**
+ * Removes a slot time from a doctor's slots map for a given ISO date.
+ * Saves and returns the updated doctor document.
+ */
+async function removeSlot(doctor, isoDate, slotTime) {
+  const daySlots = doctor.slots && doctor.slots.get(isoDate);
+  if (daySlots) {
+    const updated = daySlots.filter((t) => t !== slotTime);
+    doctor.slots.set(isoDate, updated);
+    await doctor.save();
+  }
+}
+
+//!! ─── USER / PATIENT OPERATIONS ─────────────────────────────────────────────
+
+// GET all appointments for the logged-in patient
 appointmentRouter.get("/allApp", authenticate, async (req, res) => {
   let id = req.body.userID;
-  console.log(id);
   try {
     const appointments = await AppointmentModel.find({ patientId: id });
     res.status(200).json({
-      message: "All appointments By A Pateint retrieved successfully",
-      appointments: appointments,
+      message: "All appointments retrieved successfully",
+      appointments,
     });
   } catch (error) {
-    res
-      .status(501)
-      .send({ msg: "Error in Getting All Appointments By a Patient", e });
+    res.status(500).send({ msg: "Error retrieving appointments", error: error.message });
   }
 });
 
-// Details according to Appointment ID
-appointmentRouter.get(
-  "/getApp/:appointmentId",
-  authenticate,
-  async (req, res) => {
-    try {
-      const appointment = await AppointmentModel.find({
-        _id: req.params.appointmentId,
-      });
-      res.status(200).json({
-        message: "Particular Appointments Details",
-        appointment: appointment,
-      });
-    } catch (error) {
-      res
-        .status(501)
-        .send({ msg: "Error in Getting All Appointments By a Patient", e });
+// GET single appointment by ID (patient must own it)
+appointmentRouter.get("/getApp/:appointmentId", authenticate, async (req, res) => {
+  try {
+    const appointment = await AppointmentModel.findById(req.params.appointmentId);
+    if (!appointment) {
+      return res.status(404).json({ message: "Appointment not found" });
     }
+    res.status(200).json({ message: "Appointment details", appointment });
+  } catch (error) {
+    res.status(500).send({ msg: "Error retrieving appointment", error: error.message });
   }
-);
+});
 
-// !! Check Slots
+// POST check if a slot is available (no auth — public)
+// Body: { date: "2026-05-20", slotTime: "10:00" }
 appointmentRouter.post("/checkSlot/:doctorId", async (req, res) => {
   let { date, slotTime } = req.body;
   let doctorId = req.params.doctorId;
-  console.log(date,slotTime)
+
+  if (!date || !slotTime) {
+    return res.status(400).send({ msg: "date and slotTime are required" });
+  }
+
   try {
-    let docName = await DoctorModel.findOne({ _id: doctorId });
-    if (!docName) {
-      return res.status(404).send({ msg: `Doctor donot exists` });
+    const doctor = await DoctorModel.findById(doctorId);
+    if (!doctor) return res.status(404).send({ msg: "Doctor does not exist" });
+    if (!doctor.isAvailable) {
+      return res.send({ available: false, msg: `${doctor.doctorName} is not available currently` });
     }
-    if (!docName.isAvailable) {
-      return res.send({
-        msg: `${docName.doctorName} is not available currently`,
-      });
-    }
-    await DoctorModel.findOne({ _id: doctorId })
-      .select(date)
-      .exec()
-      .then((result) => {
-        result.APRIL_04
-          ? res.send(checkSlot(result.APRIL_04, slotTime))
-          : result.APRIL_05
-          ? res.send(checkSlot(result.APRIL_05, slotTime))
-          : result.APRIL_06
-          ? res.send(checkSlot(result.APRIL_06, slotTime))
-          : res.send({
-              msg: "Selected Date Not Available, Please Select another Date",
-            });
-      })
-      .catch((error) => {
-        console.log(error);
-        res.send({
-          msg: "Selected Date Not Available, Please Select another Date",
-        });
-      });
+
+    const available = isSlotAvailable(doctor, date, slotTime);
+    res.send({ available, msg: available ? "Slot is available" : "Slot is already taken" });
   } catch (error) {
-    res.send({ msg: "Error in Check Slot Router" });
+    res.status(500).send({ msg: "Error checking slot", error: error.message });
   }
 });
 
-// !! Appointment Book
+// POST book an appointment (auth required)
+// Body: { date, slotTime, ageOfPatient, gender, address, problemDescription, appointmentDate }
 appointmentRouter.post("/create/:doctorId", authenticate, async (req, res) => {
   let doctorId = req.params.doctorId;
   let patientId = req.body.userID;
   let patientEmail = req.body.email;
+
   try {
-    let docName = await DoctorModel.findOne({ _id: doctorId });
-    let patientName = await UserModel.findOne({ _id: patientId });
-    if (!docName) {
-      return res.status(404).send({ msg: `Doctor donot exists` });
+    const doctor = await DoctorModel.findById(doctorId);
+    const patient = await UserModel.findById(patientId);
+
+    if (!doctor) return res.status(404).send({ msg: "Doctor does not exist" });
+    if (!patient) return res.status(404).send({ msg: "Patient does not exist" });
+    if (!doctor.isAvailable) {
+      return res.send({ msg: `${doctor.doctorName} is currently unavailable` });
     }
-    if (!patientName) {
-      return res.status(404).send({ msg: `Patient donot exists` });
+
+    let { date, slotTime, ageOfPatient, gender, address, problemDescription, appointmentDate } = req.body;
+
+    // Verify slot is still available before creating
+    if (date && slotTime) {
+      const available = isSlotAvailable(doctor, date, slotTime);
+      if (!available) {
+        return res.status(409).send({ msg: "This slot is no longer available. Please choose another." });
+      }
+      // Remove the slot so no one else can book it
+      await removeSlot(doctor, date, slotTime);
     }
-    let docFirstName = docName.doctorName;
-    let patientFirstName = patientName.first_name;
-    console.log(
-      "Appointment Create Console: ",
-      docFirstName,
-      patientFirstName,
-      patientEmail
-    );
-    let { ageOfPatient, gender, address, problemDescription, appointmentDate } =
-      req.body;
-      console.log(req.body);
-    if (!docName.isAvailable) {
-      return res.send({ msg: `${docFirstName}  is currently unavailable` });
-    }
+
     const appointment = new AppointmentModel({
       patientId,
       doctorId,
-      patientFirstName,
-      docFirstName,
+      patientFirstName: patient.first_name,
+      docFirstName: doctor.doctorName,
       ageOfPatient,
       gender,
       address,
       problemDescription,
-      appointmentDate,
+      appointmentDate: appointmentDate || date,
     });
-    const createdAppointment = await appointment.save();
-    // !!-NODE MAILER-//
-    const transporter = nodemailer.createTransport({
-      service: "gmail",
-      auth: {
-        user: "medistar.hospital301@gmail.com",
-        pass: "hoxilrprpqwjbnzi",
-      },
-    });
+
+    await appointment.save();
+
+    // Send confirmation email
+    const transporter = createTransporter();
     const mailOptions = {
-      from: "medistar.hospital301@gmail.com",
+      from: process.env.GMAIL_USER,
       to: patientEmail,
-      subject: "Medistar Appointment Confirm",
+      subject: "Mediqueue — Appointment Confirmed",
       html: `
-      <!DOCTYPE html>
+        <!DOCTYPE html>
         <html>
-          <head>
-            <title>Example Email Template</title>
-            <meta charset="utf-8" />
-            <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-          </head>
-          <body style="font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 18px; line-height: 1.5; color: #333; padding: 20px;">
-            <table style="width: 100%; max-width: 600px; margin: 0 auto; background-color: #fff; border-collapse: collapse;">
+          <head><title>Appointment Confirmation</title><meta charset="utf-8" /></head>
+          <body style="font-family:'Helvetica Neue',Arial,sans-serif;font-size:16px;line-height:1.5;color:#333;padding:20px;">
+            <table style="width:100%;max-width:600px;margin:0 auto;background:#fff;border-collapse:collapse;">
               <tr>
-                <td style="background-color: #0077c0; text-align: center; padding: 10px;">
-                  <h1 style="font-size: 28px; color: #fff; margin: 0;">MEDISTAR HOSPITALS</h1>
+                <td style="background:#0a6b6b;text-align:center;padding:16px;">
+                  <h1 style="font-size:24px;color:#fff;margin:0;">Mediqueue</h1>
                 </td>
               </tr>
               <tr>
-                <td style="padding: 20px;">
-                  <h2 style="font-size: 24px; color: #0077c0; margin-top: 0;">Hello, [${patientFirstName}]</h2>
-                  <h5 style="margin-bottom: 20px;">Thank you for your recent appointment with ${docFirstName}. Your appointment has been booked for [${problemDescription}] on [${appointmentDate}]</h5>
-                  <p style="margin-bottom: 20px;">If you do have any issues, please don't hesitate to contact our customer service team. We're always happy to help.</p>
-                  <p style="margin-bottom: 20px;">Thank you for choosing Medistar Services</p>
-                  <p style="margin-bottom: 0;">Best regards,</p>
-                  <p style="margin-bottom: 20px;">Medistar Hospitals</p>
+                <td style="padding:24px;">
+                  <h2 style="color:#0a6b6b;margin-top:0;">Hello, ${patient.first_name}!</h2>
+                  <p>Your appointment has been confirmed:</p>
+                  <table style="width:100%;border-collapse:collapse;margin-top:12px;">
+                    <tr><td style="padding:8px 0;color:#666;">Doctor:</td><td><strong>${doctor.doctorName}</strong></td></tr>
+                    <tr><td style="padding:8px 0;color:#666;">Date:</td><td><strong>${date || appointmentDate}</strong></td></tr>
+                    <tr><td style="padding:8px 0;color:#666;">Time:</td><td><strong>${slotTime || "—"}</strong></td></tr>
+                    <tr><td style="padding:8px 0;color:#666;">Reason:</td><td><strong>${problemDescription}</strong></td></tr>
+                  </table>
+                  <p style="margin-top:20px;">If you need to reschedule, please log in to your Mediqueue dashboard.</p>
+                  <p>Best regards,<br>St. Helena Medical Center</p>
                 </td>
               </tr>
             </table>
@@ -168,176 +174,127 @@ appointmentRouter.post("/create/:doctorId", authenticate, async (req, res) => {
         </html>
       `,
     };
+
     transporter
       .sendMail(mailOptions)
-      .then((info) => {
-        res.status(201).json({
-          message: "Appointment has been created , Check Your Mail",
-          status: true,
-        });
+      .then(() => {
+        res.status(201).json({ message: "Appointment created. Check your email for confirmation.", status: true });
       })
-      .catch((e) => {
-        console.log(error);
-        return res.status(500).json({ message: "Error Sending Mail" });
+      .catch((err) => {
+        console.error("Mail error:", err);
+        // Appointment is already saved — still return success
+        res.status(201).json({ message: "Appointment created (email notification failed).", status: true });
       });
   } catch (error) {
-    res.status(500).send({ msg: "Error in created appointment" });
-    console.log(error);
+    console.error("Create appointment error:", error);
+    res.status(500).send({ msg: "Error creating appointment", error: error.message });
   }
 });
 
-//!! Delete Slot
+// POST remove a slot manually (e.g., doctor blocks off time) — no auth for now
+// Body: { date: "2026-05-20", slotTime: "10:00" }
 appointmentRouter.post("/deleteSlot/:doctorId", async (req, res) => {
   let { date, slotTime } = req.body;
   let doctorId = req.params.doctorId;
-  await DoctorModel.findOne({ _id: doctorId })
-    .then((doc) => {
-      date === "APRIL_04"
-        ? doc.APRIL_04.pull(slotTime)
-        : date === "APRIL_05"
-        ? doc.APRIL_05.pull(slotTime)
-        : doc.APRIL_06.pull(slotTime);
-      return doc.save();
-    })
-    .then(() => {
-      console.log("Element removed from array");
-      res.send({ msg: "Slot removed from array" });
-    })
-    .catch((err) => {
-      console.error(err);
-      res.send({ msg: "Slot removed " });
-    });
+
+  if (!date || !slotTime) {
+    return res.status(400).send({ msg: "date and slotTime are required" });
+  }
+
+  try {
+    const doctor = await DoctorModel.findById(doctorId);
+    if (!doctor) return res.status(404).send({ msg: "Doctor not found" });
+
+    await removeSlot(doctor, date, slotTime);
+    res.send({ msg: "Slot removed successfully" });
+  } catch (error) {
+    res.status(500).send({ msg: "Error removing slot", error: error.message });
+  }
 });
 
-// Cancel Appointment by user/Patient
-appointmentRouter.delete(
-  "/cancel/:appointmentId",
-  authenticate,
-  async (req, res) => {
-    let id = req.body.userID;
-    try {
-      let appointment = await AppointmentModel.findOne({
-        patientId: id,
-        _id: req.params.appointmentId,
-      });
-      // console.log(appointment);
-      if (!appointment) {
-        return res.status(404).json({ message: "Appointment not found" });
-      }
-      await AppointmentModel.findByIdAndDelete({
-        _id: req.params.appointmentId,
-      });
-      res.status(200).json({
-        message: "Appointment has been Cancelled By Patient successfully",
-      });
-    } catch (error) {
-      res.send({ msg: "Error in Deleting the Appointment By Patient", error });
+// DELETE cancel appointment (patient — must own it)
+appointmentRouter.delete("/cancel/:appointmentId", authenticate, async (req, res) => {
+  let patientId = req.body.userID;
+  try {
+    const appointment = await AppointmentModel.findOne({
+      patientId,
+      _id: req.params.appointmentId,
+    });
+    if (!appointment) {
+      return res.status(404).json({ message: "Appointment not found" });
     }
+    await AppointmentModel.findByIdAndDelete(req.params.appointmentId);
+    res.status(200).json({ message: "Appointment cancelled successfully" });
+  } catch (error) {
+    res.status(500).send({ msg: "Error cancelling appointment", error: error.message });
   }
-);
+});
 
-// Reschedule a appointment by Patient
-appointmentRouter.patch(
-  "/reschedule/:appointmentId",
-  authenticate,
-  async (req, res) => {
-    const userId = req.body.userID;
-    const payload = req.body;
-    try {
-      // Find the appointment by appointmentId and patientId
-      let appointment = await AppointmentModel.findOne({
-        patientId: userId,
-        _id: req.params.appointmentId,
-      });
-      // console.log(appointment);
-      if (!appointment) {
-        return res.status(404).json({ message: "Appointment not found" });
-      }
-      await AppointmentModel.findByIdAndUpdate(
-        { _id: req.params.appointmentId },
-        payload
-      );
-      res.status(200).json({ message: "Appointment updated successfully" });
-    } catch (error) {
-      res.send({ msg: error.message });
-      console.log("error");
+// PATCH reschedule appointment (patient — must own it)
+appointmentRouter.patch("/reschedule/:appointmentId", authenticate, async (req, res) => {
+  const patientId = req.body.userID;
+  try {
+    const appointment = await AppointmentModel.findOne({
+      patientId,
+      _id: req.params.appointmentId,
+    });
+    if (!appointment) {
+      return res.status(404).json({ message: "Appointment not found" });
     }
+    const { ageOfPatient, gender, address, problemDescription, appointmentDate } = req.body;
+    await AppointmentModel.findByIdAndUpdate(req.params.appointmentId, {
+      ageOfPatient, gender, address, problemDescription, appointmentDate,
+    });
+    res.status(200).json({ message: "Appointment updated successfully" });
+  } catch (error) {
+    res.status(500).send({ msg: error.message });
   }
-);
+});
 
-//!! ADMIN SIDE OPERATIONS------------------------------>
-//  Get All Appointments
+//!! ─── ADMIN OPERATIONS ───────────────────────────────────────────────────────
+
+// GET all appointments (admin)
 appointmentRouter.get("/all", async (req, res) => {
   try {
     const appointments = await AppointmentModel.find();
-    res.status(200).json({
-      message: "All appointments retrieved successfully",
-      appointments: appointments,
-    });
+    res.status(200).json({ message: "All appointments retrieved", appointments });
   } catch (error) {
-    res.status(501).send({ msg: "Error in Getting All Appointments", e });
+    res.status(500).send({ msg: "Error retrieving all appointments", error: error.message });
   }
 });
 
-//  Get All Pending Appointments
+// GET all pending appointments (status: false)
 appointmentRouter.get("/allPending", async (req, res) => {
   try {
     const appointments = await AppointmentModel.find({ status: false });
-    res.status(200).json({
-      message: "All Pending appointments",
-      appointments: appointments,
-    });
+    res.status(200).json({ message: "Pending appointments", appointments });
   } catch (error) {
-    res.status(501).send({ msg: "Error in Getting Pending Appointments", e });
+    res.status(500).send({ msg: "Error retrieving pending appointments", error: error.message });
   }
 });
 
-// Reject Appointment by ADMIN
+// DELETE reject appointment (admin)
 appointmentRouter.delete("/reject/:appointmentId", async (req, res) => {
   try {
-    let appointment = await AppointmentModel.findOne({
-      _id: req.params.appointmentId,
-    });
-    if (!appointment) {
-      return res.status(404).json({ message: "Appointment not found" });
-    }
-    await AppointmentModel.findByIdAndDelete({ _id: req.params.appointmentId });
-    res.status(200).json({
-      message: "Appointment has been Cancelled By Patient successfully",
-    });
+    const appointment = await AppointmentModel.findById(req.params.appointmentId);
+    if (!appointment) return res.status(404).json({ message: "Appointment not found" });
+    await AppointmentModel.findByIdAndDelete(req.params.appointmentId);
+    res.status(200).json({ message: "Appointment rejected and removed" });
   } catch (error) {
-    res.send({ msg: "Error in Deleting the Appointment By Patient", error });
+    res.status(500).send({ msg: "Error rejecting appointment", error: error.message });
   }
 });
 
-// Approve Appointment by ADMIN
+// PATCH approve appointment (admin)
 appointmentRouter.patch("/approve/:appointmentId", async (req, res) => {
   try {
-    let appointment = await AppointmentModel.findOne({
-      _id: req.params.appointmentId,
-    });
-    console.log(appointment);
-    if (!appointment) {
-      return res.status(404).json({ message: "Appointment not found" });
-    }
-    await AppointmentModel.findByIdAndUpdate(req.params.appointmentId, {
-      status: true,
-    });
-    res.status(200).json({
-      message: "Appointment has been Approved",
-    });
+    const appointment = await AppointmentModel.findById(req.params.appointmentId);
+    if (!appointment) return res.status(404).json({ message: "Appointment not found" });
+    await AppointmentModel.findByIdAndUpdate(req.params.appointmentId, { status: true });
+    res.status(200).json({ message: "Appointment approved" });
   } catch (error) {
-    res.send({ msg: "Error in Deleting the Appointment By Patient", error });
+    res.status(500).send({ msg: "Error approving appointment", error: error.message });
   }
 });
 
-function checkSlot(date, time) {
-  if (date.includes(time)) {
-    return true;
-  }
-  return false;
-}
-
-module.exports = {
-  appointmentRouter,
-};
+module.exports = { appointmentRouter };
