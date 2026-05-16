@@ -118,6 +118,10 @@ export const doctorApi = {
     api.get<{ total: number; doctor: BackendDoctor[] }>(`/doctor/allDoctor/${departmentId}`),
   addSlots: (doctorId: string, date: string, slots: string[]) =>
     api.patch<{ msg: string }>(`/doctor/addSlots/${doctorId}`, { date, slots }),
+  // Admin actions
+  getPending: () => api.get<{ msg: string; docPending: BackendDoctor[] }>("/doctor/docPending"),
+  updateStatus: (doctorId: string, status: boolean) =>
+    api.patch<{ msg: string }>(`/doctor/updateDoctorStatus/${doctorId}`, { status }),
 };
 
 // Departments
@@ -171,6 +175,13 @@ export const appointmentApi = {
     api.delete<{ message: string }>(`/appointment/cancel/${appointmentId}`),
   reschedule: (appointmentId: string, body: Partial<CreateAppointmentBody>) =>
     api.patch<{ message: string }>(`/appointment/reschedule/${appointmentId}`, body),
+  // Admin actions
+  getAllAdmin: () =>
+    api.get<{ message: string; appointments: BackendAppointment[] }>("/appointment/all"),
+  approve: (appointmentId: string) =>
+    api.patch<{ message: string }>(`/appointment/approve/${appointmentId}`, {}),
+  reject: (appointmentId: string) =>
+    api.delete<{ message: string }>(`/appointment/reject/${appointmentId}`),
 };
 
 // Admin
