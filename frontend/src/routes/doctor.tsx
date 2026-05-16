@@ -1,143 +1,326 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { AppLayout } from "@/components/app-layout";
-import { Activity, AlertCircle, CheckCircle2, Clock, Users } from "lucide-react";
+import { useState, useMemo } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
+import {
+  Activity, CheckCircle2, Clock, Users, Stethoscope,
+  Plus, Loader2, WifiOff, CalendarDays, Star, Trash2,
+} from "lucide-react";
 import { LineChart, Line, ResponsiveContainer, XAxis, YAxis, Tooltip, CartesianGrid } from "recharts";
 import { cn } from "@/lib/utils";
+import { doctorApi, appointmentApi, type BackendDoctor, type BackendAppointment } from "@/lib/api";
 
 export const Route = createFileRoute("/doctor")({
   head: () => ({ meta: [{ title: "Doctor Console — Mediqueue" }] }),
   component: DoctorPage,
 });
 
-const appts = [
-  { time: "09:00", name: "Sara Ahmed", reason: "Follow-up · Hypertension", status: "Done", room: "304" },
-  { time: "09:30", name: "Marcus Johnson", reason: "Chest discomfort", status: "Done", room: "304" },
-  { time: "10:00", name: "Lina Park", reason: "ECG review", status: "In room", room: "304" },
-  { time: "10:30", name: "Hannah Liu", reason: "New patient consultation", status: "Waiting", room: "304" },
-  { time: "11:00", name: "Diego Alvarez", reason: "Medication review", status: "Waiting", room: "304" },
-  { time: "11:30", name: "Priya Raman", reason: "Cardiac stress test review", status: "Waiting", room: "304" },
-  { time: "13:30", name: "Yusuf Aydın", reason: "Annual check-up", status: "Scheduled", room: "304" },
-];
+const trend = Array.from({ length: 8 }, (_, i) => ({ h: `${8 + i}:00`, seen: 2 + Math.round(Math.sin(i / 2) * 2 + i / 2) }));
 
-const trend = Array.from({ length: 8 }).map((_, i) => ({ h: `${8 + i}:00`, seen: 2 + Math.round(Math.sin(i / 2) * 2 + i / 2) }));
+// Default slot times a doctor can add
+const DEFAULT_SLOTS = ["08:00","08:30","09:00","09:30","10:00","10:30","11:00","11:30",
+  "13:00","13:30","14:00","14:30","15:00","15:30","16:00","16:30"];
 
 function DoctorPage() {
+  const qc = useQueryClient();
+  const [selectedDoctorId, setSelectedDoctorId] = useState<string>("");
+
+  // Slot management state
+  const [slotDate, setSlotDate] = useState(todayPlus(1));
+  const [selectedSlots, setSelectedSlots] = useState<string[]>([]);
+
+  // ── Fetch all approved doctors ──────────────────────────────────────────────
+  const { data: doctorData, isLoading: drLoading } = useQuery({
+    queryKey: ["doctors"],
+    queryFn: () => doctorApi.getAll(),
+    staleTime: 1000 * 60 * 2,
+  });
+  const doctors = useMemo(
+    () => (doctorData?.doctor ?? []).filter((d) => d.status),
+    [doctorData],
+  );
+  const doctor = doctors.find((d) => d._id === selectedDoctorId) ?? null;
+
+  // ── Fetch all appointments (admin view) for the selected doctor ─────────────
+  const { data: apptData, isLoading: apptLoading } = useQuery({
+    queryKey: ["doctor-appointments", selectedDoctorId],
+    queryFn: () => appointmentApi.getAllAdmin(),
+    enabled: !!selectedDoctorId,
+    staleTime: 1000 * 30,
+  });
+  const myAppointments = useMemo(
+    () => (apptData?.appointments ?? []).filter((a) => a.doctorId === selectedDoctorId),
+    [apptData, selectedDoctorId],
+  );
+  const todayAppts = myAppointments.filter((a) => isToday(a.appointmentDate));
+  const upcomingAppts = myAppointments.filter((a) => !isToday(a.appointmentDate) && !a.status);
+
+  // ── Add slots mutation ──────────────────────────────────────────────────────
+  const addSlotsMutation = useMutation({
+    mutationFn: () => doctorApi.addSlots(selectedDoctorId, slotDate, selectedSlots),
+    onSuccess: () => {
+      toast.success(`${selectedSlots.length} slots added for ${formatDate(slotDate)}.`);
+      setSelectedSlots([]);
+      qc.invalidateQueries({ queryKey: ["doctors"] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  // ── Toggle slot availability (remove from doctor's map) ─────────────────────
+  const removeSlotMutation = useMutation({
+    mutationFn: ({ date, slot }: { date: string; slot: string }) => {
+      if (!doctor) throw new Error("No doctor");
+      const existing = (doctor.slots?.[date] ?? []).filter((s) => s !== slot);
+      return doctorApi.addSlots(selectedDoctorId, date, existing);
+    },
+    onSuccess: () => {
+      toast.success("Slot removed.");
+      qc.invalidateQueries({ queryKey: ["doctors"] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  // Slots on selected date
+  const slotsOnDate: string[] = doctor?.slots?.[slotDate] ?? [];
+
   return (
-    <AppLayout title="Good morning, Dr. Weiss" subtitle="Tuesday, January 14 · Cardiology · Room 304">
-      <div className="grid gap-6 lg:grid-cols-4">
-        <Stat k="Patients waiting" v="6" tone="primary" icon={Users} hint="2 high-priority" />
-        <Stat k="Completed" v="9" tone="success" icon={CheckCircle2} hint="of 14 today" />
-        <Stat k="Avg. consult" v="14m" tone="info" icon={Clock} hint="Goal 12m" />
-        <Stat k="Emergencies" v="1" tone="warning" icon={AlertCircle} hint="Triage now" />
+    <AppLayout title="Doctor Console" subtitle="Select a doctor to view their schedule and manage availability.">
+
+      {/* Doctor selector */}
+      <div className="mb-6 flex flex-wrap items-center gap-3">
+        {drLoading ? (
+          <div className="h-11 w-64 rounded-xl bg-muted animate-pulse" />
+        ) : doctors.length === 0 ? (
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <WifiOff className="size-4" /> No approved doctors found in the database.
+          </div>
+        ) : (
+          <div className="relative">
+            <Stethoscope className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
+            <select
+              value={selectedDoctorId}
+              onChange={(e) => { setSelectedDoctorId(e.target.value); setSelectedSlots([]); }}
+              className="h-11 pl-10 pr-8 rounded-xl border border-input bg-card text-sm focus:outline-none focus:ring-2 focus:ring-ring/40 min-w-[260px]"
+            >
+              <option value="">— Select a doctor —</option>
+              {doctors.map((d) => (
+                <option key={d._id} value={d._id}>{d.doctorName} ({d.qualifications})</option>
+              ))}
+            </select>
+          </div>
+        )}
+        {doctor && (
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <Star className="size-3.5 text-warning fill-current" />
+            <span>{doctor.rating > 0 ? doctor.rating.toFixed(1) : "Unrated"}</span>
+            <span>·</span>
+            <span>{doctor.experience} yrs exp.</span>
+            <span>·</span>
+            <span className={cn("text-xs px-2 py-0.5 rounded-full font-medium",
+              doctor.isAvailable ? "bg-success/15 text-success" : "bg-muted text-muted-foreground")}>
+              {doctor.isAvailable ? "Available" : "Unavailable"}
+            </span>
+          </div>
+        )}
       </div>
 
-      <div className="mt-6 grid gap-6 lg:grid-cols-3">
-        <div className="lg:col-span-2 rounded-2xl border border-border bg-card shadow-soft overflow-hidden">
-          <div className="flex items-center justify-between p-5 border-b border-border">
-            <div className="text-sm font-semibold">Today's appointments</div>
-            <div className="text-xs text-muted-foreground">14 scheduled</div>
-          </div>
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead className="text-xs text-muted-foreground bg-surface">
-                <tr>
-                  <th className="text-left font-medium px-5 py-3">Time</th>
-                  <th className="text-left font-medium px-5 py-3">Patient</th>
-                  <th className="text-left font-medium px-5 py-3">Reason</th>
-                  <th className="text-left font-medium px-5 py-3">Status</th>
-                  <th className="text-right font-medium px-5 py-3">Action</th>
-                </tr>
-              </thead>
-              <tbody>
-                {appts.map((a, i) => (
-                  <tr key={i} className="border-t border-border hover:bg-muted/40">
-                    <td className="px-5 py-3 font-medium">{a.time}</td>
-                    <td className="px-5 py-3">
-                      <div className="font-medium">{a.name}</div>
-                      <div className="text-xs text-muted-foreground">ID 1042{i}</div>
-                    </td>
-                    <td className="px-5 py-3 text-muted-foreground">{a.reason}</td>
-                    <td className="px-5 py-3">
-                      <StatusPill s={a.status} />
-                    </td>
-                    <td className="px-5 py-3 text-right">
-                      <button className="text-primary text-xs font-medium hover:underline">Open chart</button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
+      {!selectedDoctorId ? (
+        <EmptyState />
+      ) : (
+        <div className="grid gap-6 lg:grid-cols-3">
 
-        <div className="space-y-6">
-          <div className="rounded-2xl border border-border bg-card p-5 shadow-soft">
-            <div className="text-sm font-semibold inline-flex items-center gap-2"><Activity className="size-4 text-primary" /> Patients seen — today</div>
-            <div className="mt-4 h-40">
-              <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={trend}>
-                  <CartesianGrid stroke="var(--color-border)" strokeDasharray="3 3" vertical={false} />
-                  <XAxis dataKey="h" stroke="var(--color-muted-foreground)" fontSize={11} tickLine={false} axisLine={false} />
-                  <YAxis stroke="var(--color-muted-foreground)" fontSize={11} tickLine={false} axisLine={false} width={24} />
-                  <Tooltip contentStyle={{ background: "var(--color-card)", border: "1px solid var(--color-border)", borderRadius: 12, fontSize: 12 }} />
-                  <Line type="monotone" dataKey="seen" stroke="var(--color-primary)" strokeWidth={2.5} dot={false} />
-                </LineChart>
-              </ResponsiveContainer>
+          {/* ── Left: today's schedule ─────────────────────────────────────── */}
+          <div className="lg:col-span-2 space-y-6">
+
+            {/* KPI row */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+              <Stat k="Today's appointments" v={todayAppts.length} icon={CalendarDays} tone="primary" />
+              <Stat k="Completed" v={myAppointments.filter(a => a.status).length} icon={CheckCircle2} tone="success" />
+              <Stat k="Upcoming" v={upcomingAppts.length} icon={Clock} tone="warning" />
+              <Stat k="Total patients" v={myAppointments.length} icon={Users} tone="info" />
+            </div>
+
+            {/* Today's appointments table */}
+            <div className="rounded-2xl border border-border bg-card shadow-soft overflow-hidden">
+              <div className="flex items-center justify-between p-5 border-b border-border">
+                <div className="text-sm font-semibold">Today's appointments</div>
+                <div className="text-xs text-muted-foreground">{todayAppts.length} scheduled</div>
+              </div>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead className="text-xs text-muted-foreground bg-surface">
+                    <tr>
+                      {["Patient","Date","Reason","Status"].map(h => (
+                        <th key={h} className="text-left font-medium px-5 py-3">{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {apptLoading ? (
+                      Array.from({ length: 3 }).map((_, i) => (
+                        <tr key={i} className="border-t border-border">
+                          {[1,2,3,4].map(j => (
+                            <td key={j} className="px-5 py-3"><div className="h-4 rounded bg-muted animate-pulse w-24" /></td>
+                          ))}
+                        </tr>
+                      ))
+                    ) : myAppointments.length === 0 ? (
+                      <tr><td colSpan={4} className="px-5 py-10 text-center text-muted-foreground text-sm">No appointments found for this doctor.</td></tr>
+                    ) : (
+                      myAppointments.slice(0, 8).map((a) => (
+                        <tr key={a._id} className="border-t border-border hover:bg-muted/30">
+                          <td className="px-5 py-3 font-medium">{a.patientFirstName}</td>
+                          <td className="px-5 py-3 text-muted-foreground whitespace-nowrap">
+                            {a.appointmentDate ? formatDate(a.appointmentDate) : "—"}
+                          </td>
+                          <td className="px-5 py-3 text-muted-foreground max-w-[180px] truncate">{a.problemDescription ?? "—"}</td>
+                          <td className="px-5 py-3">
+                            <span className={cn("text-[11px] px-2 py-1 rounded-full font-medium",
+                              a.status ? "bg-success/15 text-success" : "bg-warning/20 text-warning-foreground")}>
+                              {a.status ? "Approved" : "Pending"}
+                            </span>
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
             </div>
           </div>
 
-          <div className="rounded-2xl border border-border bg-card p-5 shadow-soft">
-            <div className="text-sm font-semibold">Queue priorities</div>
-            <ul className="mt-3 space-y-2">
-              {[
-                { n: "Lina Park", p: "High", r: "Chest pain" },
-                { n: "Hannah Liu", p: "Normal", r: "New patient" },
-                { n: "Diego Alvarez", p: "Normal", r: "Med review" },
-              ].map((q) => (
-                <li key={q.n} className="flex items-center justify-between rounded-xl bg-surface px-3 py-2.5">
-                  <div>
-                    <div className="text-sm font-medium">{q.n}</div>
-                    <div className="text-xs text-muted-foreground">{q.r}</div>
+          {/* ── Right: chart + slot management ────────────────────────────── */}
+          <div className="space-y-6">
+
+            {/* Throughput chart */}
+            <div className="rounded-2xl border border-border bg-card p-5 shadow-soft">
+              <div className="text-sm font-semibold inline-flex items-center gap-2 mb-4">
+                <Activity className="size-4 text-primary" /> Patients seen — today
+              </div>
+              <div className="h-36">
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart data={trend}>
+                    <CartesianGrid stroke="var(--color-border)" strokeDasharray="3 3" vertical={false} />
+                    <XAxis dataKey="h" stroke="var(--color-muted-foreground)" fontSize={10} tickLine={false} axisLine={false} />
+                    <YAxis stroke="var(--color-muted-foreground)" fontSize={10} tickLine={false} axisLine={false} width={20} />
+                    <Tooltip contentStyle={{ background: "var(--color-card)", border: "1px solid var(--color-border)", borderRadius: 12, fontSize: 12 }} />
+                    <Line type="monotone" dataKey="seen" stroke="var(--color-primary)" strokeWidth={2.5} dot={false} />
+                  </LineChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+
+            {/* Slot management */}
+            <div className="rounded-2xl border border-border bg-card p-5 shadow-soft">
+              <div className="text-sm font-semibold mb-4">Manage availability slots</div>
+
+              <label className="block mb-3">
+                <span className="text-xs text-muted-foreground">Date</span>
+                <input
+                  type="date"
+                  value={slotDate}
+                  min={todayPlus(0)}
+                  onChange={(e) => { setSlotDate(e.target.value); setSelectedSlots([]); }}
+                  className="mt-1 w-full h-10 px-3 rounded-xl border border-input bg-surface text-sm focus:outline-none focus:ring-2 focus:ring-ring/40"
+                />
+              </label>
+
+              {/* Existing slots on this date */}
+              {slotsOnDate.length > 0 && (
+                <div className="mb-3">
+                  <div className="text-xs text-muted-foreground mb-2">Current slots on {formatDate(slotDate)}</div>
+                  <div className="flex flex-wrap gap-1.5">
+                    {slotsOnDate.map((s) => (
+                      <span key={s} className="inline-flex items-center gap-1 h-7 px-2.5 rounded-lg bg-success/10 text-success text-xs font-medium">
+                        {s}
+                        <button onClick={() => removeSlotMutation.mutate({ date: slotDate, slot: s })}
+                          className="hover:text-destructive">
+                          <Trash2 className="size-3" />
+                        </button>
+                      </span>
+                    ))}
                   </div>
-                  <span className={cn("text-[11px] px-2 py-1 rounded-full font-medium",
-                    q.p === "High" ? "bg-destructive/10 text-destructive" : "bg-muted text-muted-foreground")}>
-                    {q.p}
-                  </span>
-                </li>
-              ))}
-            </ul>
+                </div>
+              )}
+
+              {/* Add new slots */}
+              <div className="text-xs text-muted-foreground mb-2">Add slots</div>
+              <div className="grid grid-cols-4 gap-1.5 mb-4">
+                {DEFAULT_SLOTS.filter(s => !slotsOnDate.includes(s)).map((s) => (
+                  <button key={s} onClick={() => setSelectedSlots(prev =>
+                    prev.includes(s) ? prev.filter(x => x !== s) : [...prev, s])}
+                    className={cn("h-8 rounded-lg border text-xs font-medium transition-colors",
+                      selectedSlots.includes(s)
+                        ? "border-primary bg-primary text-primary-foreground"
+                        : "border-border bg-surface hover:bg-muted")}>
+                    {s}
+                  </button>
+                ))}
+              </div>
+
+              <button
+                onClick={() => addSlotsMutation.mutate()}
+                disabled={selectedSlots.length === 0 || addSlotsMutation.isPending}
+                className="w-full h-10 rounded-xl bg-primary text-primary-foreground text-sm font-medium inline-flex items-center justify-center gap-2 disabled:opacity-50"
+              >
+                {addSlotsMutation.isPending
+                  ? <><Loader2 className="size-4 animate-spin" /> Saving…</>
+                  : <><Plus className="size-4" /> Add {selectedSlots.length > 0 ? selectedSlots.length : ""} slot{selectedSlots.length !== 1 ? "s" : ""}</>}
+              </button>
+            </div>
           </div>
         </div>
-      </div>
+      )}
     </AppLayout>
   );
 }
 
-function Stat({ k, v, tone, icon: Icon, hint }: { k: string; v: string; tone: "primary" | "success" | "warning" | "info"; icon: any; hint: string }) {
-  const tones: Record<string, string> = {
-    primary: "bg-primary/10 text-primary",
-    success: "bg-success/15 text-success",
-    warning: "bg-warning/20 text-warning-foreground",
-    info: "bg-info/15 text-info-foreground",
-  };
+function EmptyState() {
   return (
-    <div className="rounded-2xl border border-border bg-card p-5 shadow-soft">
-      <div className="flex items-center justify-between">
-        <div className="text-xs uppercase tracking-wider text-muted-foreground">{k}</div>
-        <div className={cn("size-9 rounded-lg grid place-items-center", tones[tone])}><Icon className="size-4" /></div>
+    <div className="flex flex-col items-center justify-center py-24 text-center gap-4">
+      <div className="size-16 rounded-2xl bg-primary/10 text-primary grid place-items-center">
+        <Stethoscope className="size-8" />
       </div>
-      <div className="mt-3 text-3xl font-semibold tracking-tight">{v}</div>
-      <div className="mt-1 text-xs text-muted-foreground">{hint}</div>
+      <div>
+        <h2 className="text-lg font-semibold">Select a doctor to begin</h2>
+        <p className="text-sm text-muted-foreground mt-1 max-w-sm">
+          Use the dropdown above to view a doctor's schedule, appointments, and manage their availability slots.
+        </p>
+      </div>
     </div>
   );
 }
 
-function StatusPill({ s }: { s: string }) {
-  const map: Record<string, string> = {
-    "Done": "bg-success/15 text-success",
-    "In room": "bg-primary/10 text-primary",
-    "Waiting": "bg-warning/20 text-warning-foreground",
-    "Scheduled": "bg-muted text-muted-foreground",
+function Stat({ k, v, icon: Icon, tone }: { k: string; v: number; icon: React.ElementType; tone: "primary" | "success" | "warning" | "info" }) {
+  const tones: Record<string, string> = {
+    primary: "bg-primary/10 text-primary",
+    success: "bg-success/15 text-success",
+    warning: "bg-warning/20 text-warning-foreground",
+    info: "bg-blue-500/10 text-blue-500",
   };
-  return <span className={cn("text-[11px] px-2 py-1 rounded-full font-medium", map[s])}>{s}</span>;
+  return (
+    <div className="rounded-2xl border border-border bg-card p-4 shadow-soft">
+      <div className="flex items-center justify-between">
+        <div className="text-xs uppercase tracking-wider text-muted-foreground leading-tight">{k}</div>
+        <div className={cn("size-8 rounded-lg grid place-items-center", tones[tone])}><Icon className="size-4" /></div>
+      </div>
+      <div className="mt-2 text-2xl font-semibold tracking-tight">{v}</div>
+    </div>
+  );
+}
+
+function todayPlus(n: number) {
+  const d = new Date();
+  d.setDate(d.getDate() + n);
+  return d.toISOString().slice(0, 10);
+}
+
+function isToday(dateStr?: string) {
+  if (!dateStr) return false;
+  return dateStr.slice(0, 10) === todayPlus(0);
+}
+
+function formatDate(iso: string) {
+  return new Date(iso).toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" });
 }
