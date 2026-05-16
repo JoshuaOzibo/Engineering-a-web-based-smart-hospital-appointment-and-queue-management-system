@@ -6,10 +6,12 @@ import { toast } from "sonner";
 import {
   Activity, CheckCircle2, Clock, Users, Stethoscope,
   Plus, Loader2, WifiOff, CalendarDays, Star, Trash2,
+  ChevronRight, Bell,
 } from "lucide-react";
 import { LineChart, Line, ResponsiveContainer, XAxis, YAxis, Tooltip, CartesianGrid } from "recharts";
 import { cn } from "@/lib/utils";
-import { doctorApi, appointmentApi, type BackendDoctor, type BackendAppointment } from "@/lib/api";
+import { doctorApi, appointmentApi, queueApi, type BackendDoctor, type BackendAppointment } from "@/lib/api";
+import { useQueueSSE } from "@/lib/useQueueSSE";
 
 export const Route = createFileRoute("/doctor")({
   head: () => ({ meta: [{ title: "Doctor Console — Mediqueue" }] }),
@@ -83,6 +85,29 @@ function DoctorPage() {
 
   // Slots on selected date
   const slotsOnDate: string[] = doctor?.slots?.[slotDate] ?? [];
+
+  // ── Queue management ─────────────────────────────────────────────────────────
+  // Use the doctor's departmentId to manage the queue for their department
+  const deptId = doctor?.departmentId ?? null;
+  const liveQueue = useQueueSSE(deptId);
+
+  const callNextMutation = useMutation({
+    mutationFn: () => queueApi.callNext(deptId!),
+    onSuccess: (data) => {
+      if (data.patientName) {
+        toast.success(`Calling ${data.patientName} — token #${data.currentServing}`);
+      } else {
+        toast.info("Queue is empty — no more patients waiting.");
+      }
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const resetQueueMutation = useMutation({
+    mutationFn: () => queueApi.reset(deptId!),
+    onSuccess: () => toast.success("Queue reset for today."),
+    onError: (e: Error) => toast.error(e.message),
+  });
 
   return (
     <AppLayout title="Doctor Console" subtitle="Select a doctor to view their schedule and manage availability.">
@@ -190,8 +215,72 @@ function DoctorPage() {
             </div>
           </div>
 
-          {/* ── Right: chart + slot management ────────────────────────────── */}
+          {/* ── Right: queue panel + chart + slot management ───────────────── */}
           <div className="space-y-6">
+
+            {/* Live queue management panel */}
+            {deptId && (
+              <div className="rounded-2xl border border-border bg-card p-5 shadow-soft">
+                <div className="flex items-center justify-between mb-4">
+                  <div className="text-sm font-semibold inline-flex items-center gap-2">
+                    <Users className="size-4 text-primary" /> Queue — {doctor?.departmentId ? `Dept ${doctor.departmentId}` : "—"}
+                  </div>
+                  <span className="inline-flex items-center gap-1 text-xs text-success font-medium">
+                    <span className="size-1.5 rounded-full bg-success" /> Live
+                  </span>
+                </div>
+
+                {/* Stats row */}
+                <div className="grid grid-cols-3 gap-2 mb-4">
+                  {[
+                    { l: "Serving", v: liveQueue?.currentServing ? `A-${String(liveQueue.currentServing).padStart(3,"0")}` : "—" },
+                    { l: "Waiting", v: String(liveQueue?.waitingCount ?? 0) },
+                    { l: "Total",   v: String(liveQueue?.lastIssued ?? 0) },
+                  ].map((s) => (
+                    <div key={s.l} className="rounded-xl bg-surface border border-border p-3 text-center">
+                      <div className="text-[10px] uppercase tracking-wider text-muted-foreground">{s.l}</div>
+                      <div className="text-lg font-semibold mt-0.5">{s.v}</div>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Waiting list */}
+                {liveQueue && liveQueue.tokens.filter(t => t.status === "waiting").length > 0 && (
+                  <ul className="mb-4 space-y-1.5 max-h-40 overflow-y-auto">
+                    {liveQueue.tokens.filter(t => t.status === "waiting").map((t) => (
+                      <li key={t.tokenNumber}
+                        className="flex items-center justify-between rounded-lg bg-surface px-3 py-2 text-sm">
+                        <span className="font-medium">{t.patientName}</span>
+                        <span className="text-xs text-muted-foreground font-mono">
+                          A-{String(t.tokenNumber).padStart(3, "0")}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+
+                {/* Call next button */}
+                <button
+                  onClick={() => callNextMutation.mutate()}
+                  disabled={callNextMutation.isPending || !liveQueue || liveQueue.waitingCount === 0}
+                  className="w-full h-11 rounded-xl bg-primary text-primary-foreground text-sm font-semibold inline-flex items-center justify-center gap-2 disabled:opacity-50 mb-2"
+                >
+                  {callNextMutation.isPending
+                    ? <><Loader2 className="size-4 animate-spin" /> Calling…</>
+                    : <><Bell className="size-4" /> Call next patient</>}
+                </button>
+
+                {/* Reset queue */}
+                <button
+                  onClick={() => { if (window.confirm("Reset today's queue for this department?")) resetQueueMutation.mutate(); }}
+                  disabled={resetQueueMutation.isPending}
+                  className="w-full h-9 rounded-xl border border-destructive/30 text-destructive hover:bg-destructive/10 text-xs font-medium inline-flex items-center justify-center gap-2 disabled:opacity-50"
+                >
+                  {resetQueueMutation.isPending ? <Loader2 className="size-3 animate-spin" /> : null}
+                  Reset today's queue
+                </button>
+              </div>
+            )}
 
             {/* Throughput chart */}
             <div className="rounded-2xl border border-border bg-card p-5 shadow-soft">

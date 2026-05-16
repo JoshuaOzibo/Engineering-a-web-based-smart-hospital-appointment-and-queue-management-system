@@ -4,13 +4,14 @@ import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import {
-  Calendar, Clock, FileText, Bell, Activity, Download,
+  Calendar, Clock, FileText, Bell, Activity,
   X, RotateCcw, ChevronRight, HeartPulse, Loader2,
-  AlertCircle, CheckCircle2, LogIn, WifiOff,
+  AlertCircle, CheckCircle2, LogIn, WifiOff, Users,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { appointmentApi, type BackendAppointment } from "@/lib/api";
+import { appointmentApi, queueApi, type BackendAppointment } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
+import { useQueueSSE } from "@/lib/useQueueSSE";
 
 export const Route = createFileRoute("/dashboard")({
   head: () => ({ meta: [{ title: "My Dashboard — Mediqueue" }] }),
@@ -192,43 +193,8 @@ function Dashboard() {
       >
         <div className="grid lg:grid-cols-3 gap-6">
 
-          {/* ── Queue card (still simulated — queue system Phase 4) ─────────── */}
-          <section className="lg:col-span-2 rounded-2xl border border-border bg-card p-6 shadow-card">
-            <div className="flex items-start justify-between flex-wrap gap-3">
-              <div>
-                <div className="text-xs uppercase tracking-wider text-muted-foreground">Active queue · Cardiology</div>
-                <div className="mt-2 flex items-end gap-3">
-                  <div className="text-5xl font-semibold tracking-tight">A‑042</div>
-                  <span className="mb-1.5 text-sm text-success inline-flex items-center gap-1">
-                    <span className="size-1.5 rounded-full bg-success" /> On track
-                  </span>
-                </div>
-                <div className="mt-1 text-sm text-muted-foreground">Estimated wait — about 12 minutes</div>
-              </div>
-              <Link to="/queue" className="text-sm font-medium text-primary inline-flex items-center gap-1">
-                View live queue <ChevronRight className="size-4" />
-              </Link>
-            </div>
-            <div className="mt-6 h-2 rounded-full bg-muted overflow-hidden">
-              <div className="h-full w-2/3 bg-primary rounded-full" />
-            </div>
-            <div className="mt-2 flex items-center justify-between text-xs text-muted-foreground">
-              <span>3 ahead of you</span><span>Queue system coming in Phase 4</span>
-            </div>
-            <div className="mt-6 grid grid-cols-2 sm:grid-cols-4 gap-2">
-              {[
-                { i: Download, l: "Ticket" },
-                { i: Bell, l: "Notify me" },
-              ].map((a) => (
-                <button
-                  key={a.l}
-                  className="h-11 rounded-xl border border-border bg-surface hover:bg-muted text-sm font-medium inline-flex items-center justify-center gap-2"
-                >
-                  <a.i className="size-4" /> {a.l}
-                </button>
-              ))}
-            </div>
-          </section>
+          {/* ── Queue card — LIVE ───────────────────────────────────────────── */}
+          <QueueCard />
 
           {/* ── Health reminders ────────────────────────────────────────────── */}
           <aside className="rounded-2xl border border-border bg-card p-6 shadow-soft">
@@ -402,4 +368,121 @@ function AppointmentRow({
 function formatDate(iso: string) {
   const d = new Date(iso);
   return d.toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" });
+}
+
+// ── Live Queue Card ───────────────────────────────────────────────────────────
+function QueueCard() {
+  const { isAuthenticated, user } = useAuth();
+  const qc = useQueryClient();
+
+  const { data: myToken, isLoading } = useQuery({
+    queryKey: ["my-queue-token"],
+    queryFn: () => queueApi.getMyToken(),
+    enabled: isAuthenticated,
+    refetchInterval: 20000, // poll every 20s as fallback
+    staleTime: 1000 * 10,
+  });
+
+  // Subscribe to SSE for patient's current department
+  const liveQueue = useQueueSSE(myToken?.deptId ?? null);
+
+  const leaveMutation = useMutation({
+    mutationFn: () => queueApi.leave(myToken!.deptId),
+    onSuccess: () => {
+      toast.success("You've left the queue.");
+      qc.invalidateQueries({ queryKey: ["my-queue-token"] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  function fmt(n: number) {
+    return `A-${String(n).padStart(3, "0")}`;
+  }
+
+  return (
+    <section className="lg:col-span-2 rounded-2xl border border-border bg-card p-6 shadow-card">
+      <div className="flex items-start justify-between flex-wrap gap-3">
+        <div>
+          <div className="text-xs uppercase tracking-wider text-muted-foreground">
+            {myToken ? `Active queue · ${myToken.deptName}` : "Queue status"}
+          </div>
+
+          {isLoading ? (
+            <div className="mt-3 h-12 w-32 rounded-xl bg-muted animate-pulse" />
+          ) : myToken ? (
+            <>
+              <div className="mt-2 flex items-end gap-3">
+                <div className="text-5xl font-semibold tracking-tight">{fmt(myToken.tokenNumber)}</div>
+                <span className={cn("mb-1.5 text-sm inline-flex items-center gap-1",
+                  myToken.status === "serving" ? "text-success" : "text-primary")}>
+                  <span className={cn("size-1.5 rounded-full",
+                    myToken.status === "serving" ? "bg-success" : "bg-primary")} />
+                  {myToken.status === "serving" ? "Your turn!" : "In queue"}
+                </span>
+              </div>
+              <div className="mt-1 text-sm text-muted-foreground">
+                {myToken.status === "serving"
+                  ? "Please head to the consultation room now."
+                  : myToken.position > 0
+                  ? `${myToken.position} patient${myToken.position !== 1 ? "s" : ""} ahead of you`
+                  : "You're next!"}
+              </div>
+            </>
+          ) : (
+            <>
+              <div className="mt-2 text-2xl font-semibold text-muted-foreground">Not in queue</div>
+              <div className="mt-1 text-sm text-muted-foreground">You haven't joined a department queue today.</div>
+            </>
+          )}
+        </div>
+
+        <Link to="/queue" className="text-sm font-medium text-primary inline-flex items-center gap-1">
+          View live queue <ChevronRight className="size-4" />
+        </Link>
+      </div>
+
+      {/* Progress bar — only when in queue */}
+      {myToken && liveQueue && liveQueue.lastIssued > 0 && (
+        <>
+          <div className="mt-6 h-2 rounded-full bg-muted overflow-hidden">
+            <div
+              className="h-full bg-primary rounded-full transition-all duration-700"
+              style={{ width: `${Math.min(100, Math.round((liveQueue.currentServing / liveQueue.lastIssued) * 100))}%` }}
+            />
+          </div>
+          <div className="mt-2 flex items-center justify-between text-xs text-muted-foreground">
+            <span>Now serving: {fmt(liveQueue.currentServing)}</span>
+            <span className="inline-flex items-center gap-1 text-success font-medium">
+              <span className="size-1.5 rounded-full bg-success" /> Live via SSE
+            </span>
+          </div>
+        </>
+      )}
+
+      {/* Action row */}
+      <div className="mt-6 flex flex-wrap gap-2">
+        {myToken ? (
+          <>
+            <button
+              onClick={() => { if (window.confirm("Leave this queue? You'll lose your place.")) leaveMutation.mutate(); }}
+              disabled={leaveMutation.isPending || myToken.status === "serving"}
+              className="h-10 px-4 rounded-xl border border-destructive/30 text-destructive hover:bg-destructive/10 text-sm font-medium inline-flex items-center gap-2 disabled:opacity-50"
+            >
+              {leaveMutation.isPending ? <Loader2 className="size-4 animate-spin" /> : <X className="size-4" />}
+              Leave queue
+            </button>
+            <Link to="/queue"
+              className="h-10 px-4 rounded-xl border border-border bg-surface hover:bg-muted text-sm font-medium inline-flex items-center gap-2">
+              <Users className="size-4" /> Queue details
+            </Link>
+          </>
+        ) : (
+          <Link to="/queue"
+            className="h-10 px-4 rounded-xl bg-primary text-primary-foreground text-sm font-medium inline-flex items-center gap-2">
+            <Users className="size-4" /> Join a queue
+          </Link>
+        )}
+      </div>
+    </section>
+  );
 }

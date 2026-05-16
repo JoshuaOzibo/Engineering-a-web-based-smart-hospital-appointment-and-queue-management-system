@@ -200,3 +200,47 @@ export const adminApi = {
   signin: (body: { email: string; password: string }) =>
     api.post<{ message: string }>("/admin/signin", body),
 };
+
+// Queue
+export type QueueState = {
+  departmentId: number;
+  deptName: string;
+  currentServing: number;
+  lastIssued: number;
+  waitingCount: number;
+  tokens: Array<{
+    tokenNumber: number;
+    patientId: string;
+    patientName: string;
+    status: "waiting" | "serving" | "done";
+  }>;
+};
+
+export type MyTokenState = {
+  tokenNumber: number;
+  position: number;
+  deptId: number;
+  deptName: string;
+  status: "waiting" | "serving" | "done";
+  currentServing: number;
+} | null;
+
+export const queueApi = {
+  getStatus: (deptId: number | string) =>
+    api.get<QueueState>(`/queue/status/${deptId}`),
+  join: (deptId: number | string, patientName: string) =>
+    api.post<{ msg: string; tokenNumber: number; position: number }>(
+      `/queue/join/${deptId}`,
+      { patientName },
+    ),
+  getMyToken: () => api.get<MyTokenState>("/queue/myToken"),
+  callNext: (deptId: number | string) =>
+    api.patch<{ msg: string; currentServing: number; patientName?: string }>(
+      `/queue/next/${deptId}`,
+      {},
+    ),
+  leave: (deptId: number | string) =>
+    api.delete<{ msg: string }>(`/queue/leave/${deptId}`),
+  reset: (deptId: number | string) =>
+    api.post<{ msg: string }>(`/queue/reset/${deptId}`, {}),
+};
