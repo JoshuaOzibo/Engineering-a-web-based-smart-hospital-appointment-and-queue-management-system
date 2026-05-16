@@ -1,10 +1,17 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { AppLayout } from "@/components/app-layout";
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { motion } from "framer-motion";
-import { doctors, departments, branches, timeSlots, type Doctor } from "@/lib/mock-data";
-import { Calendar, MapPin, Search, Star, Clock, Check, ChevronRight, ChevronLeft } from "lucide-react";
+import { useQuery, useMutation } from "@tanstack/react-query";
+import { toast } from "sonner";
+import {
+  Calendar, MapPin, Search, Star, Clock, Check,
+  ChevronRight, ChevronLeft, Loader2, AlertCircle,
+  User, Stethoscope, WifiOff,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
+import { doctorApi, departmentApi, appointmentApi, type BackendDoctor } from "@/lib/api";
+import { useAuth } from "@/lib/auth";
 
 export const Route = createFileRoute("/book")({
   head: () => ({ meta: [{ title: "Book an Appointment — Mediqueue" }] }),
@@ -13,92 +20,359 @@ export const Route = createFileRoute("/book")({
 
 const steps = ["Doctor", "Date & time", "Details", "Confirm"];
 
+const branches = [
+  "St. Helena — Main Campus",
+  "St. Helena — Westside Clinic",
+  "St. Helena — Riverside",
+];
+
+// Fallback avatar using initials
+function DoctorAvatar({ name, image, size = "lg" }: { name: string; image?: string; size?: "sm" | "lg" }) {
+  const initials = name
+    .split(" ")
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((w) => w[0])
+    .join("")
+    .toUpperCase();
+  const dim = size === "lg" ? "size-16 text-lg" : "size-12 text-sm";
+
+  if (image) {
+    return (
+      <img
+        src={image}
+        alt={name}
+        className={cn(dim, "rounded-xl object-cover")}
+        onError={(e) => { e.currentTarget.style.display = "none"; }}
+      />
+    );
+  }
+  return (
+    <div className={cn(dim, "rounded-xl bg-primary/10 text-primary font-semibold grid place-items-center flex-shrink-0")}>
+      {initials}
+    </div>
+  );
+}
+
 function BookPage() {
+  const navigate = useNavigate();
+  const { user, isAuthenticated } = useAuth();
+
   const [step, setStep] = useState(0);
-  const [dept, setDept] = useState<string>("All departments");
+  const [deptFilter, setDeptFilter] = useState("All departments");
   const [query, setQuery] = useState("");
-  const [doctor, setDoctor] = useState<Doctor | null>(null);
+  const [doctor, setDoctor] = useState<BackendDoctor | null>(null);
   const [branch, setBranch] = useState(branches[0]);
   const [date, setDate] = useState<string>(todayPlus(1));
-  const [slot, setSlot] = useState<string>("10:00");
+  const [slot, setSlot] = useState<string>("");
+
+  // Patient details (pre-filled from auth)
+  const [age, setAge] = useState("");
+  const [gender, setGender] = useState("Prefer not to say");
+  const [address, setAddress] = useState("");
   const [reason, setReason] = useState("");
 
-  const filtered = doctors.filter((d) =>
-    (dept === "All departments" || d.department === dept) &&
-    (d.name + d.specialty).toLowerCase().includes(query.toLowerCase())
+  // ── Data fetching ───────────────────────────────────────────────────────────
+  const { data: deptData, isLoading: deptLoading } = useQuery({
+    queryKey: ["departments"],
+    queryFn: () => departmentApi.getAll(),
+    staleTime: 1000 * 60 * 5,
+  });
+
+  const { data: doctorData, isLoading: doctorLoading, isError: doctorError } = useQuery({
+    queryKey: ["doctors"],
+    queryFn: () => doctorApi.getAll(),
+    staleTime: 1000 * 60 * 2,
+  });
+
+  // Department names derived from API (fall back to empty)
+  const departmentNames = useMemo(
+    () => (deptData ?? []).map((d) => d.deptName),
+    [deptData]
   );
+
+  // Find department ID from selected name for filtering
+  const selectedDeptId = useMemo(() => {
+    if (deptFilter === "All departments") return null;
+    return deptData?.find((d) => d.deptName === deptFilter)?.departmentId ?? null;
+  }, [deptFilter, deptData]);
+
+  // All approved doctors from API
+  const allDoctors = useMemo(
+    () => (doctorData?.doctor ?? []).filter((d) => d.status === true && d.isAvailable),
+    [doctorData]
+  );
+
+  // Client-side filter by department + search query
+  const filtered = useMemo(
+    () =>
+      allDoctors.filter((d) => {
+        const matchDept = selectedDeptId === null || d.departmentId === selectedDeptId;
+        const matchQuery =
+          query === "" ||
+          d.doctorName.toLowerCase().includes(query.toLowerCase()) ||
+          d.qualifications.toLowerCase().includes(query.toLowerCase());
+        return matchDept && matchQuery;
+      }),
+    [allDoctors, selectedDeptId, query]
+  );
+
+  // Available time slots for the selected doctor on the selected date
+  const availableSlots = useMemo(() => {
+    if (!doctor?.slots) return [];
+    const raw = doctor.slots[date];
+    return Array.isArray(raw) ? raw : [];
+  }, [doctor, date]);
+
+  // ── Booking mutation ────────────────────────────────────────────────────────
+  const bookMutation = useMutation({
+    mutationFn: async () => {
+      if (!doctor) throw new Error("No doctor selected");
+      if (!slot) throw new Error("No slot selected");
+      return appointmentApi.create(doctor._id, {
+        date,
+        slotTime: slot,
+        ageOfPatient: age,
+        gender,
+        address,
+        problemDescription: reason,
+        appointmentDate: date,
+      });
+    },
+    onSuccess: () => {
+      toast.success("Appointment booked! Check your email for confirmation.");
+      setStep(3);
+    },
+    onError: (err: Error) => {
+      toast.error(err.message || "Failed to book appointment. Please try again.");
+    },
+  });
+
+  // ── Navigation helpers ──────────────────────────────────────────────────────
+  function goNext() {
+    if (step === 2) {
+      // Confirm step → call API
+      if (!isAuthenticated) {
+        toast.error("Please sign in first to book an appointment.");
+        navigate({ to: "/login" });
+        return;
+      }
+      bookMutation.mutate();
+      return;
+    }
+    setStep((s) => Math.min(3, s + 1));
+  }
+
+  function canContinue() {
+    if (step === 0) return !!doctor;
+    if (step === 1) return !!slot;
+    if (step === 2) return reason.trim().length > 0;
+    return true;
+  }
 
   return (
     <AppLayout title="Book an appointment" subtitle="Find the right specialist and pick a time that works for you.">
       <Stepper step={step} />
 
+      {/* ── STEP 0: Choose doctor ──────────────────────────────────────────── */}
       {step === 0 && (
         <div className="grid gap-4">
           <div className="flex flex-wrap gap-3">
+            {/* Search */}
             <div className="relative flex-1 min-w-[220px]">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
-              <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search doctor or specialty"
-                className="w-full h-11 pl-9 pr-3 rounded-xl border border-input bg-card text-sm focus:outline-none focus:ring-2 focus:ring-ring/40" />
+              <input
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder="Search doctor or specialty"
+                className="w-full h-11 pl-9 pr-3 rounded-xl border border-input bg-card text-sm focus:outline-none focus:ring-2 focus:ring-ring/40"
+              />
             </div>
-            <Select value={dept} onChange={setDept} options={["All departments", ...departments]} />
-            <Select value={branch} onChange={setBranch} options={branches} icon={<MapPin className="size-4" />} />
+            {/* Department filter */}
+            <SelectInput
+              value={deptFilter}
+              onChange={(v) => { setDeptFilter(v); setDoctor(null); }}
+              options={["All departments", ...(deptLoading ? [] : departmentNames)]}
+            />
+            {/* Branch */}
+            <SelectInput
+              value={branch}
+              onChange={setBranch}
+              options={branches}
+              icon={<MapPin className="size-4" />}
+            />
           </div>
 
-          <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-4">
-            {filtered.map((d) => (
-              <DoctorCard key={d.id} d={d} selected={doctor?.id === d.id} onSelect={() => setDoctor(d)} />
-            ))}
-          </div>
+          {/* Doctor grid */}
+          {doctorLoading ? (
+            <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-4">
+              {Array.from({ length: 6 }).map((_, i) => (
+                <div key={i} className="rounded-2xl border border-border bg-card p-5 animate-pulse h-36" />
+              ))}
+            </div>
+          ) : doctorError ? (
+            <div className="flex flex-col items-center justify-center py-20 text-center gap-3">
+              <WifiOff className="size-10 text-muted-foreground" />
+              <div className="text-sm text-muted-foreground">Could not load doctors. Make sure the backend is running.</div>
+            </div>
+          ) : filtered.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-16 text-center gap-3">
+              <Stethoscope className="size-10 text-muted-foreground" />
+              <div className="text-sm text-muted-foreground">
+                {allDoctors.length === 0
+                  ? "No approved doctors found in the database yet."
+                  : "No doctors match your search. Try a different filter."}
+              </div>
+            </div>
+          ) : (
+            <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-4">
+              {filtered.map((d) => (
+                <DoctorCard
+                  key={d._id}
+                  d={d}
+                  deptName={deptData?.find((dept) => dept.departmentId === d.departmentId)?.deptName}
+                  selected={doctor?._id === d._id}
+                  onSelect={() => { setDoctor(d); setSlot(""); }}
+                />
+              ))}
+            </div>
+          )}
         </div>
       )}
 
+      {/* ── STEP 1: Date & time ────────────────────────────────────────────── */}
       {step === 1 && doctor && (
         <div className="grid lg:grid-cols-3 gap-6">
           <div className="lg:col-span-2 grid gap-6">
+            {/* Date picker */}
             <Card title="Choose a date">
               <div className="flex gap-2 overflow-x-auto pb-1">
-                {nextDays(10).map((d) => (
-                  <button key={d.iso} onClick={() => setDate(d.iso)}
-                    className={cn("min-w-[72px] rounded-xl border p-3 text-center transition-colors",
-                      date === d.iso ? "border-primary bg-primary/5" : "border-border bg-card hover:bg-muted")}>
-                    <div className="text-[10px] uppercase tracking-widest text-muted-foreground">{d.dow}</div>
-                    <div className="text-lg font-semibold mt-1">{d.day}</div>
-                    <div className="text-[11px] text-muted-foreground">{d.mon}</div>
-                  </button>
-                ))}
+                {nextDays(14).map((d) => {
+                  const slotsOnDay = doctor.slots?.[d.iso];
+                  const hasFreeSlots = Array.isArray(slotsOnDay) && slotsOnDay.length > 0;
+                  return (
+                    <button
+                      key={d.iso}
+                      onClick={() => { setDate(d.iso); setSlot(""); }}
+                      disabled={!hasFreeSlots}
+                      className={cn(
+                        "min-w-[72px] rounded-xl border p-3 text-center transition-colors relative",
+                        date === d.iso
+                          ? "border-primary bg-primary/5"
+                          : hasFreeSlots
+                          ? "border-border bg-card hover:bg-muted"
+                          : "border-border bg-surface opacity-40 cursor-not-allowed"
+                      )}
+                    >
+                      <div className="text-[10px] uppercase tracking-widest text-muted-foreground">{d.dow}</div>
+                      <div className="text-lg font-semibold mt-1">{d.day}</div>
+                      <div className="text-[11px] text-muted-foreground">{d.mon}</div>
+                      {hasFreeSlots && (
+                        <div className="mt-1 text-[10px] text-success font-medium">{slotsOnDay.length} slots</div>
+                      )}
+                    </button>
+                  );
+                })}
               </div>
             </Card>
-            <Card title="Pick a time">
-              <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-2">
-                {timeSlots.map((t) => (
-                  <button key={t} onClick={() => setSlot(t)}
-                    className={cn("h-11 rounded-lg border text-sm font-medium",
-                      slot === t ? "border-primary bg-primary text-primary-foreground" : "border-border bg-card hover:bg-muted text-foreground")}>
-                    {t}
-                  </button>
-                ))}
-              </div>
+
+            {/* Time slots */}
+            <Card title={availableSlots.length > 0 ? "Pick a time" : "No slots available on this date"}>
+              {availableSlots.length === 0 ? (
+                <div className="flex items-center gap-3 text-sm text-muted-foreground py-4">
+                  <AlertCircle className="size-4 text-warning" />
+                  Select a date with available slots (highlighted in green above).
+                </div>
+              ) : (
+                <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-2">
+                  {availableSlots.map((t) => (
+                    <button
+                      key={t}
+                      onClick={() => setSlot(t)}
+                      className={cn(
+                        "h-11 rounded-lg border text-sm font-medium transition-colors",
+                        slot === t
+                          ? "border-primary bg-primary text-primary-foreground"
+                          : "border-border bg-card hover:bg-muted text-foreground"
+                      )}
+                    >
+                      {t}
+                    </button>
+                  ))}
+                </div>
+              )}
             </Card>
           </div>
           <SummaryCard doctor={doctor} branch={branch} date={date} slot={slot} reason={reason} />
         </div>
       )}
 
+      {/* ── STEP 2: Patient details ────────────────────────────────────────── */}
       {step === 2 && doctor && (
         <div className="grid lg:grid-cols-3 gap-6">
           <Card className="lg:col-span-2" title="Visit details">
             <div className="grid sm:grid-cols-2 gap-4">
-              <Field label="Patient name" defaultValue="Sara Ahmed" />
-              <Field label="Patient ID" defaultValue="10428" />
-              <Field label="Phone" defaultValue="+1 (555) 220 1184" />
-              <Field label="Email" defaultValue="sara.a@example.com" />
+              {/* Pre-filled read-only fields from auth */}
+              <ReadField
+                label="Patient name"
+                value={user ? `${user.name} ${user.last_name}` : "—"}
+                icon={<User className="size-3.5" />}
+              />
+              <ReadField
+                label="Email"
+                value={user?.email ?? "—"}
+                icon={<User className="size-3.5" />}
+              />
+              {/* Editable fields the backend needs */}
+              <label className="block">
+                <span className="text-sm font-medium text-foreground">Age</span>
+                <input
+                  value={age}
+                  onChange={(e) => setAge(e.target.value)}
+                  placeholder="e.g. 32"
+                  className="mt-1.5 w-full h-11 px-3 rounded-xl border border-input bg-card text-sm focus:outline-none focus:ring-2 focus:ring-ring/40"
+                />
+              </label>
+              <label className="block">
+                <span className="text-sm font-medium text-foreground">Gender</span>
+                <select
+                  value={gender}
+                  onChange={(e) => setGender(e.target.value)}
+                  className="mt-1.5 w-full h-11 px-3 rounded-xl border border-input bg-card text-sm focus:outline-none focus:ring-2 focus:ring-ring/40"
+                >
+                  {["Male", "Female", "Non-binary", "Prefer not to say"].map((g) => (
+                    <option key={g}>{g}</option>
+                  ))}
+                </select>
+              </label>
+              <label className="block sm:col-span-2">
+                <span className="text-sm font-medium text-foreground">Address</span>
+                <input
+                  value={address}
+                  onChange={(e) => setAddress(e.target.value)}
+                  placeholder="Your home address"
+                  className="mt-1.5 w-full h-11 px-3 rounded-xl border border-input bg-card text-sm focus:outline-none focus:ring-2 focus:ring-ring/40"
+                />
+              </label>
             </div>
             <div className="mt-4">
-              <label className="text-sm font-medium text-foreground">Reason for visit</label>
-              <textarea value={reason} onChange={(e) => setReason(e.target.value)} rows={4}
+              <label className="text-sm font-medium text-foreground">
+                Reason for visit <span className="text-destructive">*</span>
+              </label>
+              <textarea
+                value={reason}
+                onChange={(e) => setReason(e.target.value)}
+                rows={4}
                 placeholder="Briefly describe your symptoms or reason for the appointment…"
-                className="mt-1.5 w-full rounded-xl border border-input bg-card p-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring/40" />
+                className="mt-1.5 w-full rounded-xl border border-input bg-card p-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring/40"
+              />
             </div>
+            {!isAuthenticated && (
+              <div className="mt-3 flex items-center gap-2 rounded-xl bg-warning/10 border border-warning/20 text-warning-foreground px-4 py-3 text-sm">
+                <AlertCircle className="size-4 shrink-0" />
+                <span>You need to <Link to="/login" className="underline font-medium">sign in</Link> before confirming this appointment.</span>
+              </div>
+            )}
             <div className="mt-3 flex items-start gap-2 text-xs text-muted-foreground">
               <Check className="size-3.5 mt-0.5 text-success" />
               Your information stays inside the hospital network and is shared only with your care team.
@@ -108,53 +382,80 @@ function BookPage() {
         </div>
       )}
 
+      {/* ── STEP 3: Success ────────────────────────────────────────────────── */}
       {step === 3 && doctor && (
-        <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
-          className="max-w-2xl mx-auto rounded-2xl bg-card border border-border p-8 text-center shadow-card">
-          <div className="size-14 mx-auto rounded-full bg-success/15 text-success grid place-items-center">
-            <Check className="size-7" />
+        <motion.div
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="max-w-2xl mx-auto rounded-2xl bg-card border border-border p-8 text-center shadow-card"
+        >
+          <div className="size-16 mx-auto rounded-full bg-success/15 text-success grid place-items-center">
+            <Check className="size-8" />
           </div>
-          <h2 className="mt-4 text-2xl font-semibold">Appointment confirmed</h2>
-          <p className="text-muted-foreground mt-1">A reminder will be sent 24 hours before your visit.</p>
+          <h2 className="mt-5 text-2xl font-semibold">Appointment confirmed!</h2>
+          <p className="text-muted-foreground mt-2">A confirmation email has been sent to {user?.email ?? "your email"}.</p>
           <div className="mt-6 grid sm:grid-cols-2 gap-3 text-left">
-            <Info label="Doctor" value={doctor.name} />
-            <Info label="Specialty" value={doctor.specialty} />
+            <Info label="Doctor" value={doctor.doctorName} />
+            <Info label="Specialty" value={doctor.qualifications} />
             <Info label="When" value={`${formatDate(date)} · ${slot}`} />
             <Info label="Where" value={branch} />
           </div>
+          <Link
+            to="/dashboard"
+            className="mt-6 inline-flex items-center gap-2 h-11 px-5 rounded-xl bg-primary text-primary-foreground text-sm font-medium"
+          >
+            View my dashboard
+          </Link>
         </motion.div>
       )}
 
-      <div className="mt-8 flex items-center justify-between">
-        <button onClick={() => setStep((s) => Math.max(0, s - 1))} disabled={step === 0}
-          className="inline-flex items-center gap-1 h-11 px-4 rounded-xl text-sm font-medium text-foreground hover:bg-muted disabled:opacity-40">
-          <ChevronLeft className="size-4" /> Back
-        </button>
-        {step < 3 ? (
-          <button onClick={() => setStep((s) => Math.min(3, s + 1))} disabled={step === 0 && !doctor}
-            className="inline-flex items-center gap-1 h-11 px-5 rounded-xl text-sm font-medium bg-primary text-primary-foreground disabled:opacity-50">
-            {step === 2 ? "Confirm appointment" : "Continue"} <ChevronRight className="size-4" />
+      {/* ── Navigation bar ─────────────────────────────────────────────────── */}
+      {step < 3 && (
+        <div className="mt-8 flex items-center justify-between">
+          <button
+            onClick={() => setStep((s) => Math.max(0, s - 1))}
+            disabled={step === 0}
+            className="inline-flex items-center gap-1 h-11 px-4 rounded-xl text-sm font-medium text-foreground hover:bg-muted disabled:opacity-40"
+          >
+            <ChevronLeft className="size-4" /> Back
           </button>
-        ) : (
-          <a href="/dashboard" className="inline-flex items-center gap-1 h-11 px-5 rounded-xl text-sm font-medium bg-primary text-primary-foreground">
-            Go to dashboard
-          </a>
-        )}
-      </div>
+          <button
+            onClick={goNext}
+            disabled={!canContinue() || bookMutation.isPending}
+            className="inline-flex items-center gap-1 h-11 px-5 rounded-xl text-sm font-medium bg-primary text-primary-foreground disabled:opacity-50"
+          >
+            {bookMutation.isPending ? (
+              <><Loader2 className="size-4 animate-spin" /> Booking…</>
+            ) : (
+              <>{step === 2 ? "Confirm appointment" : "Continue"} <ChevronRight className="size-4" /></>
+            )}
+          </button>
+        </div>
+      )}
     </AppLayout>
   );
 }
+
+// ── Sub-components ────────────────────────────────────────────────────────────
 
 function Stepper({ step }: { step: number }) {
   return (
     <ol className="mb-6 flex items-center gap-2 text-sm overflow-x-auto">
       {steps.map((s, i) => (
         <li key={s} className="flex items-center gap-2">
-          <div className={cn("size-7 rounded-full grid place-items-center text-xs font-semibold",
-            i < step ? "bg-success text-success-foreground" : i === step ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground")}>
+          <div
+            className={cn(
+              "size-7 rounded-full grid place-items-center text-xs font-semibold",
+              i < step
+                ? "bg-success text-success-foreground"
+                : i === step
+                ? "bg-primary text-primary-foreground"
+                : "bg-muted text-muted-foreground"
+            )}
+          >
             {i < step ? <Check className="size-3.5" /> : i + 1}
           </div>
-          <span className={cn("font-medium", i === step ? "text-foreground" : "text-muted-foreground")}>{s}</span>
+          <span className={cn("font-medium whitespace-nowrap", i === step ? "text-foreground" : "text-muted-foreground")}>{s}</span>
           {i < steps.length - 1 && <span className="w-6 h-px bg-border mx-1" />}
         </li>
       ))}
@@ -162,45 +463,83 @@ function Stepper({ step }: { step: number }) {
   );
 }
 
-function DoctorCard({ d, selected, onSelect }: { d: Doctor; selected: boolean; onSelect: () => void }) {
+function DoctorCard({
+  d,
+  deptName,
+  selected,
+  onSelect,
+}: {
+  d: BackendDoctor;
+  deptName?: string;
+  selected: boolean;
+  onSelect: () => void;
+}) {
+  const totalSlots = d.slots
+    ? Object.values(d.slots).reduce((sum, arr) => sum + (Array.isArray(arr) ? arr.length : 0), 0)
+    : 0;
+
   return (
-    <button onClick={onSelect} className={cn("text-left rounded-2xl border bg-card p-5 transition-all shadow-soft",
-      selected ? "border-primary ring-2 ring-primary/20" : "border-border hover:border-primary/40")}>
+    <button
+      onClick={onSelect}
+      className={cn(
+        "text-left rounded-2xl border bg-card p-5 transition-all shadow-soft w-full",
+        selected ? "border-primary ring-2 ring-primary/20" : "border-border hover:border-primary/40"
+      )}
+    >
       <div className="flex gap-4">
-        <img src={d.photo} alt={d.name} width={64} height={64} loading="lazy" className="size-16 rounded-xl object-cover" />
+        <DoctorAvatar name={d.doctorName} image={d.image} size="lg" />
         <div className="flex-1 min-w-0">
-          <div className="font-semibold truncate">{d.name}</div>
-          <div className="text-sm text-muted-foreground">{d.specialty}</div>
+          <div className="font-semibold truncate">{d.doctorName}</div>
+          <div className="text-sm text-muted-foreground truncate">{deptName ?? `Dept ${d.departmentId}`}</div>
           <div className="mt-1 flex items-center gap-3 text-xs text-muted-foreground">
-            <span className="inline-flex items-center gap-1"><Star className="size-3 text-warning fill-current" /> {d.rating}</span>
-            <span>{d.experience} yrs</span>
+            <span className="inline-flex items-center gap-1">
+              <Star className="size-3 text-warning fill-current" />
+              {d.rating > 0 ? d.rating.toFixed(1) : "New"}
+            </span>
+            <span>{d.experience} yrs exp.</span>
           </div>
         </div>
       </div>
       <div className="mt-4 flex items-center justify-between text-xs">
-        <span className="inline-flex items-center gap-1 text-muted-foreground"><Calendar className="size-3.5" /> {d.nextAvailable}</span>
-        <span className={cn("px-2 py-1 rounded-full font-medium",
-          d.queue <= 3 ? "bg-success/15 text-success" : "bg-warning/15 text-warning-foreground")}>
-          Queue · {d.queue}
+        <span className="text-muted-foreground truncate">{d.qualifications}</span>
+        <span
+          className={cn(
+            "ml-2 shrink-0 px-2 py-1 rounded-full font-medium",
+            totalSlots > 0 ? "bg-success/15 text-success" : "bg-muted text-muted-foreground"
+          )}
+        >
+          {totalSlots > 0 ? `${totalSlots} slots` : "Full"}
         </span>
       </div>
     </button>
   );
 }
 
-function SummaryCard({ doctor, branch, date, slot, reason }: { doctor: Doctor; branch: string; date: string; slot: string; reason: string }) {
+function SummaryCard({
+  doctor,
+  branch,
+  date,
+  slot,
+  reason,
+}: {
+  doctor: BackendDoctor;
+  branch: string;
+  date: string;
+  slot: string;
+  reason: string;
+}) {
   return (
     <aside className="rounded-2xl border border-border bg-card p-6 shadow-soft h-fit">
       <div className="text-xs uppercase tracking-wider text-muted-foreground">Appointment summary</div>
-      <div className="mt-4 flex gap-3">
-        <img src={doctor.photo} alt="" className="size-12 rounded-lg object-cover" />
+      <div className="mt-4 flex gap-3 items-center">
+        <DoctorAvatar name={doctor.doctorName} image={doctor.image} size="sm" />
         <div>
-          <div className="font-semibold">{doctor.name}</div>
-          <div className="text-xs text-muted-foreground">{doctor.specialty}</div>
+          <div className="font-semibold">{doctor.doctorName}</div>
+          <div className="text-xs text-muted-foreground">{doctor.qualifications}</div>
         </div>
       </div>
       <dl className="mt-5 space-y-3 text-sm">
-        <Row icon={<Calendar className="size-4" />} k="Date" v={`${formatDate(date)} · ${slot}`} />
+        <Row icon={<Calendar className="size-4" />} k="Date" v={date ? `${formatDate(date)}${slot ? ` · ${slot}` : ""}` : "Not selected"} />
         <Row icon={<MapPin className="size-4" />} k="Branch" v={branch} />
         <Row icon={<Clock className="size-4" />} k="Est. wait" v="~10 min on arrival" />
       </dl>
@@ -218,24 +557,43 @@ function Card({ title, children, className }: { title?: string; children: React.
   );
 }
 
-function Field({ label, defaultValue }: { label: string; defaultValue?: string }) {
+function ReadField({ label, value, icon }: { label: string; value: string; icon?: React.ReactNode }) {
   return (
-    <label className="block">
+    <div>
       <span className="text-sm font-medium text-foreground">{label}</span>
-      <input defaultValue={defaultValue}
-        className="mt-1.5 w-full h-11 px-3 rounded-xl border border-input bg-card text-sm focus:outline-none focus:ring-2 focus:ring-ring/40" />
-    </label>
+      <div className="mt-1.5 w-full h-11 px-3 rounded-xl border border-input bg-surface text-sm flex items-center gap-2 text-muted-foreground">
+        {icon}
+        <span className="truncate">{value}</span>
+      </div>
+    </div>
   );
 }
 
-function Select({ value, onChange, options, icon }: { value: string; onChange: (v: string) => void; options: string[]; icon?: React.ReactNode }) {
+function SelectInput({
+  value,
+  onChange,
+  options,
+  icon,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  options: string[];
+  icon?: React.ReactNode;
+}) {
   return (
     <div className="relative">
       {icon && <div className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">{icon}</div>}
-      <select value={value} onChange={(e) => onChange(e.target.value)}
-        className={cn("h-11 rounded-xl border border-input bg-card text-sm pr-8 focus:outline-none focus:ring-2 focus:ring-ring/40",
-          icon ? "pl-9" : "pl-3")}>
-        {options.map((o) => <option key={o}>{o}</option>)}
+      <select
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className={cn(
+          "h-11 rounded-xl border border-input bg-card text-sm pr-8 focus:outline-none focus:ring-2 focus:ring-ring/40",
+          icon ? "pl-9" : "pl-3"
+        )}
+      >
+        {options.map((o) => (
+          <option key={o}>{o}</option>
+        ))}
       </select>
     </div>
   );
@@ -262,11 +620,13 @@ function Info({ label, value }: { label: string; value: string }) {
   );
 }
 
+// ── Date helpers ──────────────────────────────────────────────────────────────
 function todayPlus(n: number) {
   const d = new Date();
   d.setDate(d.getDate() + n);
   return d.toISOString().slice(0, 10);
 }
+
 function nextDays(n: number) {
   const dows = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
   const mons = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
@@ -276,6 +636,7 @@ function nextDays(n: number) {
     return { iso: d.toISOString().slice(0, 10), dow: dows[d.getDay()], day: d.getDate(), mon: mons[d.getMonth()] };
   });
 }
+
 function formatDate(iso: string) {
   const d = new Date(iso);
   return d.toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" });

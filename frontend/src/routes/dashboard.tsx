@@ -1,137 +1,405 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { AppLayout } from "@/components/app-layout";
-import { Calendar, Clock, FileText, Bell, Activity, Download, X, RotateCcw, ChevronRight, HeartPulse } from "lucide-react";
-import { doctors } from "@/lib/mock-data";
+import { useState } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
+import {
+  Calendar, Clock, FileText, Bell, Activity, Download,
+  X, RotateCcw, ChevronRight, HeartPulse, Loader2,
+  AlertCircle, CheckCircle2, LogIn, WifiOff,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
+import { appointmentApi, type BackendAppointment } from "@/lib/api";
+import { useAuth } from "@/lib/auth";
 
 export const Route = createFileRoute("/dashboard")({
   head: () => ({ meta: [{ title: "My Dashboard — Mediqueue" }] }),
   component: Dashboard,
 });
 
-function Dashboard() {
+// ── Reschedule modal (inline) ─────────────────────────────────────────────────
+function RescheduleModal({
+  appt,
+  onClose,
+  onSuccess,
+}: {
+  appt: BackendAppointment;
+  onClose: () => void;
+  onSuccess: () => void;
+}) {
+  const [newDate, setNewDate] = useState(appt.appointmentDate?.slice(0, 10) ?? "");
+  const [newReason, setNewReason] = useState(appt.problemDescription ?? "");
+
+  const mutation = useMutation({
+    mutationFn: () =>
+      appointmentApi.reschedule(appt._id, {
+        appointmentDate: newDate,
+        problemDescription: newReason,
+      }),
+    onSuccess: () => {
+      toast.success("Appointment rescheduled.");
+      onSuccess();
+      onClose();
+    },
+    onError: (err: Error) => {
+      toast.error(err.message || "Failed to reschedule.");
+    },
+  });
+
   return (
-    <AppLayout
-      title="Welcome back, Sara"
-      subtitle="Here's your care at a glance for today."
-      actions={
-        <Link to="/book" className="h-10 px-4 rounded-xl bg-primary text-primary-foreground text-sm font-medium inline-flex items-center gap-2">
-          <Calendar className="size-4" /> Book new
-        </Link>
-      }
-    >
-      <div className="grid lg:grid-cols-3 gap-6">
-        {/* Queue card */}
-        <section className="lg:col-span-2 rounded-2xl border border-border bg-card p-6 shadow-card">
-          <div className="flex items-start justify-between flex-wrap gap-3">
-            <div>
-              <div className="text-xs uppercase tracking-wider text-muted-foreground">Active queue · Cardiology</div>
-              <div className="mt-2 flex items-end gap-3">
-                <div className="text-5xl font-semibold tracking-tight">A‑042</div>
-                <span className="mb-1.5 text-sm text-success inline-flex items-center gap-1">
-                  <span className="size-1.5 rounded-full bg-success" /> On track
-                </span>
-              </div>
-              <div className="mt-1 text-sm text-muted-foreground">Estimated wait — about 12 minutes</div>
-            </div>
-            <Link to="/queue" className="text-sm font-medium text-primary inline-flex items-center gap-1">View live queue <ChevronRight className="size-4" /></Link>
-          </div>
-          <div className="mt-6 h-2 rounded-full bg-muted overflow-hidden">
-            <div className="h-full w-2/3 bg-primary rounded-full" />
-          </div>
-          <div className="mt-2 flex items-center justify-between text-xs text-muted-foreground">
-            <span>3 ahead of you</span><span>You arrived 18 min ago</span>
-          </div>
-          <div className="mt-6 grid grid-cols-2 sm:grid-cols-4 gap-2">
-            {[
-              { i: Download, l: "Ticket" },
-              { i: RotateCcw, l: "Reschedule" },
-              { i: X, l: "Cancel" },
-              { i: Bell, l: "Notify me" },
-            ].map((a) => (
-              <button key={a.l} className="h-11 rounded-xl border border-border bg-surface hover:bg-muted text-sm font-medium inline-flex items-center justify-center gap-2">
-                <a.i className="size-4" /> {a.l}
-              </button>
-            ))}
-          </div>
-        </section>
-
-        {/* Health reminders */}
-        <aside className="rounded-2xl border border-border bg-card p-6 shadow-soft">
-          <div className="flex items-center gap-2 text-sm font-semibold"><HeartPulse className="size-4 text-primary" /> Health reminders</div>
-          <ul className="mt-4 space-y-3 text-sm">
-            {[
-              { t: "Annual check-up due", d: "Last visit was 11 months ago." },
-              { t: "Refill: Lisinopril 10mg", d: "Refill request opens Jan 22." },
-              { t: "Flu vaccine recommended", d: "Free at any branch." },
-            ].map((r) => (
-              <li key={r.t} className="rounded-xl border border-border bg-surface p-3">
-                <div className="font-medium">{r.t}</div>
-                <div className="text-xs text-muted-foreground mt-0.5">{r.d}</div>
-              </li>
-            ))}
-          </ul>
-        </aside>
-
-        {/* Upcoming */}
-        <section className="lg:col-span-2 rounded-2xl border border-border bg-card p-6 shadow-soft">
-          <div className="flex items-center justify-between">
-            <div className="text-sm font-semibold">Upcoming appointments</div>
-            <Link to="/book" className="text-xs text-primary font-medium">Manage</Link>
-          </div>
-          <ul className="mt-4 divide-y divide-border">
-            {doctors.slice(0, 3).map((d, i) => (
-              <li key={d.id} className="py-4 first:pt-0 last:pb-0 flex items-center gap-4">
-                <img src={d.photo} alt="" className="size-12 rounded-xl object-cover" />
-                <div className="flex-1 min-w-0">
-                  <div className="font-medium truncate">{d.name}</div>
-                  <div className="text-xs text-muted-foreground">{d.specialty} · Room 30{i + 2}</div>
-                </div>
-                <div className="text-right">
-                  <div className="text-sm font-medium">{d.nextAvailable.split("·")[1]?.trim() ?? d.nextAvailable}</div>
-                  <div className="text-xs text-muted-foreground">{d.nextAvailable.split("·")[0]?.trim()}</div>
-                </div>
-                <span className={cn("hidden sm:inline-flex text-[11px] px-2 py-1 rounded-full font-medium",
-                  i === 0 ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground")}>
-                  {i === 0 ? "Today" : "Upcoming"}
-                </span>
-              </li>
-            ))}
-          </ul>
-        </section>
-
-        {/* Timeline */}
-        <aside className="rounded-2xl border border-border bg-card p-6 shadow-soft">
-          <div className="text-sm font-semibold inline-flex items-center gap-2"><Activity className="size-4 text-primary" /> Recent visits</div>
-          <ol className="mt-4 relative border-l border-border ml-2 space-y-5">
-            {[
-              { d: "Dec 12", t: "Lab results ready", n: "Cholesterol panel within range." },
-              { d: "Nov 28", t: "Follow-up — Cardiology", n: "Blood pressure stable; continue medication." },
-              { d: "Oct 04", t: "Annual physical", n: "All vitals normal." },
-            ].map((e) => (
-              <li key={e.d} className="ml-4">
-                <span className="absolute -left-1.5 mt-1.5 size-3 rounded-full bg-primary" />
-                <div className="text-xs text-muted-foreground">{e.d}</div>
-                <div className="text-sm font-medium mt-0.5">{e.t}</div>
-                <div className="text-xs text-muted-foreground">{e.n}</div>
-              </li>
-            ))}
-          </ol>
-        </aside>
-
-        {/* Doctor notes */}
-        <section className="lg:col-span-3 rounded-2xl border border-border bg-card p-6 shadow-soft">
-          <div className="flex items-center justify-between">
-            <div className="text-sm font-semibold inline-flex items-center gap-2"><FileText className="size-4 text-primary" /> Latest doctor note</div>
-            <span className="text-xs text-muted-foreground inline-flex items-center gap-1"><Clock className="size-3" /> Updated 3 days ago</span>
-          </div>
-          <p className="mt-4 text-sm text-foreground leading-relaxed max-w-3xl">
-            Patient is responding well to current treatment. Continue Lisinopril 10mg once daily and maintain low-sodium diet.
-            Recommend follow-up in six weeks with repeat lipid panel. No new symptoms reported.
-          </p>
-          <div className="mt-3 text-xs text-muted-foreground">— Dr. Daniel Weiss, Cardiology</div>
-        </section>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm px-4">
+      <div className="w-full max-w-md rounded-2xl bg-card border border-border p-6 shadow-card">
+        <h3 className="text-lg font-semibold">Reschedule appointment</h3>
+        <p className="text-sm text-muted-foreground mt-1">Dr. {appt.docFirstName}</p>
+        <div className="mt-5 space-y-4">
+          <label className="block">
+            <span className="text-sm font-medium text-foreground">New date</span>
+            <input
+              type="date"
+              value={newDate}
+              min={new Date().toISOString().slice(0, 10)}
+              onChange={(e) => setNewDate(e.target.value)}
+              className="mt-1.5 w-full h-11 px-3 rounded-xl border border-input bg-surface text-sm focus:outline-none focus:ring-2 focus:ring-ring/40"
+            />
+          </label>
+          <label className="block">
+            <span className="text-sm font-medium text-foreground">Reason / notes</span>
+            <textarea
+              value={newReason}
+              onChange={(e) => setNewReason(e.target.value)}
+              rows={3}
+              className="mt-1.5 w-full rounded-xl border border-input bg-surface p-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring/40"
+            />
+          </label>
+        </div>
+        <div className="mt-5 flex gap-3">
+          <button
+            onClick={onClose}
+            className="flex-1 h-11 rounded-xl border border-border text-sm font-medium hover:bg-muted"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={() => mutation.mutate()}
+            disabled={!newDate || mutation.isPending}
+            className="flex-1 h-11 rounded-xl bg-primary text-primary-foreground text-sm font-medium disabled:opacity-60 inline-flex items-center justify-center gap-2"
+          >
+            {mutation.isPending ? <Loader2 className="size-4 animate-spin" /> : "Confirm"}
+          </button>
+        </div>
       </div>
-    </AppLayout>
+    </div>
   );
+}
+
+// ── Dashboard ─────────────────────────────────────────────────────────────────
+function Dashboard() {
+  const navigate = useNavigate();
+  const { user, isAuthenticated, isLoading: authLoading } = useAuth();
+  const queryClient = useQueryClient();
+
+  const [rescheduleAppt, setRescheduleAppt] = useState<BackendAppointment | null>(null);
+
+  // ── Fetch appointments ──────────────────────────────────────────────────────
+  const {
+    data: apptData,
+    isLoading: apptLoading,
+    isError: apptError,
+    refetch,
+  } = useQuery({
+    queryKey: ["my-appointments"],
+    queryFn: () => appointmentApi.getMyAppointments(),
+    enabled: isAuthenticated,
+    staleTime: 1000 * 30,
+  });
+
+  const appointments = apptData?.appointments ?? [];
+
+  // Split into upcoming (status false = pending/upcoming) and past (status true = completed)
+  const upcoming = appointments.filter((a) => !a.status);
+  const past = appointments.filter((a) => a.status);
+
+  // ── Cancel mutation ─────────────────────────────────────────────────────────
+  const cancelMutation = useMutation({
+    mutationFn: (id: string) => appointmentApi.cancel(id),
+    onSuccess: () => {
+      toast.success("Appointment cancelled.");
+      queryClient.invalidateQueries({ queryKey: ["my-appointments"] });
+    },
+    onError: (err: Error) => {
+      toast.error(err.message || "Failed to cancel appointment.");
+    },
+  });
+
+  // ── Auth guard ──────────────────────────────────────────────────────────────
+  if (authLoading) {
+    return (
+      <AppLayout title="My Dashboard" subtitle="Loading your profile…">
+        <div className="flex items-center justify-center py-32">
+          <Loader2 className="size-8 animate-spin text-primary" />
+        </div>
+      </AppLayout>
+    );
+  }
+
+  if (!isAuthenticated) {
+    return (
+      <AppLayout title="My Dashboard" subtitle="Sign in to access your patient dashboard.">
+        <div className="flex flex-col items-center justify-center py-24 text-center gap-6">
+          <div className="size-16 rounded-2xl bg-primary/10 text-primary grid place-items-center">
+            <LogIn className="size-8" />
+          </div>
+          <div>
+            <h2 className="text-xl font-semibold">You're not signed in</h2>
+            <p className="mt-2 text-muted-foreground text-sm max-w-sm">
+              Your appointments and queue status are only visible after signing in.
+            </p>
+          </div>
+          <button
+            onClick={() => navigate({ to: "/login" })}
+            className="h-11 px-6 rounded-xl bg-primary text-primary-foreground text-sm font-medium inline-flex items-center gap-2"
+          >
+            <LogIn className="size-4" /> Sign in
+          </button>
+        </div>
+      </AppLayout>
+    );
+  }
+
+  const greeting = `Welcome back, ${user?.name ?? ""}`;
+
+  return (
+    <>
+      {rescheduleAppt && (
+        <RescheduleModal
+          appt={rescheduleAppt}
+          onClose={() => setRescheduleAppt(null)}
+          onSuccess={() => queryClient.invalidateQueries({ queryKey: ["my-appointments"] })}
+        />
+      )}
+
+      <AppLayout
+        title={greeting}
+        subtitle="Here's your care at a glance for today."
+        actions={
+          <Link
+            to="/book"
+            className="h-10 px-4 rounded-xl bg-primary text-primary-foreground text-sm font-medium inline-flex items-center gap-2"
+          >
+            <Calendar className="size-4" /> Book new
+          </Link>
+        }
+      >
+        <div className="grid lg:grid-cols-3 gap-6">
+
+          {/* ── Queue card (still simulated — queue system Phase 4) ─────────── */}
+          <section className="lg:col-span-2 rounded-2xl border border-border bg-card p-6 shadow-card">
+            <div className="flex items-start justify-between flex-wrap gap-3">
+              <div>
+                <div className="text-xs uppercase tracking-wider text-muted-foreground">Active queue · Cardiology</div>
+                <div className="mt-2 flex items-end gap-3">
+                  <div className="text-5xl font-semibold tracking-tight">A‑042</div>
+                  <span className="mb-1.5 text-sm text-success inline-flex items-center gap-1">
+                    <span className="size-1.5 rounded-full bg-success" /> On track
+                  </span>
+                </div>
+                <div className="mt-1 text-sm text-muted-foreground">Estimated wait — about 12 minutes</div>
+              </div>
+              <Link to="/queue" className="text-sm font-medium text-primary inline-flex items-center gap-1">
+                View live queue <ChevronRight className="size-4" />
+              </Link>
+            </div>
+            <div className="mt-6 h-2 rounded-full bg-muted overflow-hidden">
+              <div className="h-full w-2/3 bg-primary rounded-full" />
+            </div>
+            <div className="mt-2 flex items-center justify-between text-xs text-muted-foreground">
+              <span>3 ahead of you</span><span>Queue system coming in Phase 4</span>
+            </div>
+            <div className="mt-6 grid grid-cols-2 sm:grid-cols-4 gap-2">
+              {[
+                { i: Download, l: "Ticket" },
+                { i: Bell, l: "Notify me" },
+              ].map((a) => (
+                <button
+                  key={a.l}
+                  className="h-11 rounded-xl border border-border bg-surface hover:bg-muted text-sm font-medium inline-flex items-center justify-center gap-2"
+                >
+                  <a.i className="size-4" /> {a.l}
+                </button>
+              ))}
+            </div>
+          </section>
+
+          {/* ── Health reminders ────────────────────────────────────────────── */}
+          <aside className="rounded-2xl border border-border bg-card p-6 shadow-soft">
+            <div className="flex items-center gap-2 text-sm font-semibold">
+              <HeartPulse className="size-4 text-primary" /> Health reminders
+            </div>
+            <ul className="mt-4 space-y-3 text-sm">
+              {[
+                { t: "Annual check-up due", d: "Last visit was 11 months ago." },
+                { t: "Refill: Lisinopril 10mg", d: "Refill request opens Jan 22." },
+                { t: "Flu vaccine recommended", d: "Free at any branch." },
+              ].map((r) => (
+                <li key={r.t} className="rounded-xl border border-border bg-surface p-3">
+                  <div className="font-medium">{r.t}</div>
+                  <div className="text-xs text-muted-foreground mt-0.5">{r.d}</div>
+                </li>
+              ))}
+            </ul>
+          </aside>
+
+          {/* ── Upcoming appointments (LIVE) ────────────────────────────────── */}
+          <section className="lg:col-span-2 rounded-2xl border border-border bg-card p-6 shadow-soft">
+            <div className="flex items-center justify-between">
+              <div className="text-sm font-semibold">Upcoming appointments</div>
+              <Link to="/book" className="text-xs text-primary font-medium">Book new</Link>
+            </div>
+
+            {apptLoading ? (
+              <div className="mt-6 space-y-3">
+                {Array.from({ length: 3 }).map((_, i) => (
+                  <div key={i} className="h-16 rounded-xl bg-muted animate-pulse" />
+                ))}
+              </div>
+            ) : apptError ? (
+              <div className="mt-6 flex items-center gap-3 text-sm text-muted-foreground">
+                <WifiOff className="size-4" />
+                <span>Could not load appointments. <button onClick={() => refetch()} className="text-primary underline">Retry</button></span>
+              </div>
+            ) : upcoming.length === 0 ? (
+              <div className="mt-6 flex flex-col items-center py-10 text-center gap-3">
+                <Calendar className="size-8 text-muted-foreground" />
+                <div className="text-sm text-muted-foreground">No upcoming appointments.</div>
+                <Link to="/book" className="text-sm text-primary font-medium hover:underline">Book your first appointment →</Link>
+              </div>
+            ) : (
+              <ul className="mt-4 divide-y divide-border">
+                {upcoming.slice(0, 5).map((appt, i) => (
+                  <AppointmentRow
+                    key={appt._id}
+                    appt={appt}
+                    badge={i === 0 ? "Upcoming" : "Pending"}
+                    badgeTone={i === 0 ? "primary" : "muted"}
+                    onCancel={() => {
+                      if (window.confirm(`Cancel appointment with Dr. ${appt.docFirstName}?`)) {
+                        cancelMutation.mutate(appt._id);
+                      }
+                    }}
+                    onReschedule={() => setRescheduleAppt(appt)}
+                    cancelling={cancelMutation.isPending && cancelMutation.variables === appt._id}
+                  />
+                ))}
+              </ul>
+            )}
+          </section>
+
+          {/* ── Recent / completed appointments ────────────────────────────── */}
+          <aside className="rounded-2xl border border-border bg-card p-6 shadow-soft">
+            <div className="text-sm font-semibold inline-flex items-center gap-2">
+              <Activity className="size-4 text-primary" /> Recent visits
+            </div>
+            {past.length === 0 ? (
+              <p className="mt-4 text-sm text-muted-foreground">No completed appointments yet.</p>
+            ) : (
+              <ol className="mt-4 relative border-l border-border ml-2 space-y-5">
+                {past.slice(0, 4).map((appt) => (
+                  <li key={appt._id} className="ml-4">
+                    <span className="absolute -left-1.5 mt-1.5 size-3 rounded-full bg-primary" />
+                    <div className="text-xs text-muted-foreground">
+                      {appt.appointmentDate ? formatDate(appt.appointmentDate) : "—"}
+                    </div>
+                    <div className="text-sm font-medium mt-0.5">Dr. {appt.docFirstName}</div>
+                    <div className="text-xs text-muted-foreground">{appt.problemDescription}</div>
+                  </li>
+                ))}
+              </ol>
+            )}
+          </aside>
+
+          {/* ── Latest doctor note (static — no notes API yet) ──────────────── */}
+          <section className="lg:col-span-3 rounded-2xl border border-border bg-card p-6 shadow-soft">
+            <div className="flex items-center justify-between">
+              <div className="text-sm font-semibold inline-flex items-center gap-2">
+                <FileText className="size-4 text-primary" /> Latest doctor note
+              </div>
+              <span className="text-xs text-muted-foreground inline-flex items-center gap-1">
+                <Clock className="size-3" /> Doctor notes system coming soon
+              </span>
+            </div>
+            <p className="mt-4 text-sm text-foreground leading-relaxed max-w-3xl text-muted-foreground italic">
+              Doctor notes will appear here once the medical records system is integrated.
+            </p>
+          </section>
+        </div>
+      </AppLayout>
+    </>
+  );
+}
+
+// ── Appointment Row ───────────────────────────────────────────────────────────
+function AppointmentRow({
+  appt,
+  badge,
+  badgeTone,
+  onCancel,
+  onReschedule,
+  cancelling,
+}: {
+  appt: BackendAppointment;
+  badge: string;
+  badgeTone: "primary" | "muted";
+  onCancel: () => void;
+  onReschedule: () => void;
+  cancelling: boolean;
+}) {
+  return (
+    <li className="py-4 first:pt-0 last:pb-0">
+      <div className="flex items-start gap-3">
+        {/* Doctor avatar */}
+        <div className="size-11 rounded-xl bg-primary/10 text-primary grid place-items-center font-semibold text-sm flex-shrink-0">
+          {appt.docFirstName[0]?.toUpperCase() ?? "D"}
+        </div>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center justify-between gap-2 flex-wrap">
+            <div className="font-medium truncate">Dr. {appt.docFirstName}</div>
+            <span
+              className={cn(
+                "text-[11px] px-2 py-0.5 rounded-full font-medium shrink-0",
+                badgeTone === "primary" ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground"
+              )}
+            >
+              {badge}
+            </span>
+          </div>
+          <div className="text-xs text-muted-foreground mt-0.5">
+            {appt.appointmentDate ? formatDate(appt.appointmentDate) : "Date TBD"}
+            {appt.problemDescription ? ` · ${appt.problemDescription}` : ""}
+          </div>
+          {/* Action buttons */}
+          <div className="mt-2 flex items-center gap-2">
+            <button
+              onClick={onReschedule}
+              className="inline-flex items-center gap-1 h-8 px-3 rounded-lg border border-border bg-surface hover:bg-muted text-xs font-medium"
+            >
+              <RotateCcw className="size-3" /> Reschedule
+            </button>
+            <button
+              onClick={onCancel}
+              disabled={cancelling}
+              className="inline-flex items-center gap-1 h-8 px-3 rounded-lg border border-destructive/30 text-destructive hover:bg-destructive/10 text-xs font-medium disabled:opacity-50"
+            >
+              {cancelling ? <Loader2 className="size-3 animate-spin" /> : <X className="size-3" />}
+              Cancel
+            </button>
+          </div>
+        </div>
+      </div>
+    </li>
+  );
+}
+
+function formatDate(iso: string) {
+  const d = new Date(iso);
+  return d.toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" });
 }
