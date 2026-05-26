@@ -31,7 +31,6 @@ export const Route = createFileRoute("/login")({
 });
 
 type Tab = "signin" | "signup";
-type SignupStep = "details" | "otp";
 
 const features = [
   { icon: Clock, title: "Skip the waiting room", desc: "Join the queue from home and arrive exactly on time." },
@@ -44,7 +43,6 @@ function LoginPage() {
   const { login, isAuthenticated } = useAuth();
 
   const [tab, setTab] = useState<Tab>("signin");
-  const [signupStep, setSignupStep] = useState<SignupStep>("details");
   const [showPassword, setShowPassword] = useState(false);
 
   // Sign-in fields
@@ -57,8 +55,6 @@ function LoginPage() {
   const [suEmail, setSuEmail] = useState("");
   const [suMobile, setSuMobile] = useState("");
   const [suPassword, setSuPassword] = useState("");
-  const [suOtp, setSuOtp] = useState("");
-  const [storedEmail, setStoredEmail] = useState("");
 
   // UI state
   const [loading, setLoading] = useState(false);
@@ -86,44 +82,21 @@ function LoginPage() {
     }
   }
 
-  async function handleSendOtp(e: React.FormEvent) {
-    e.preventDefault();
-    setError(null);
-    setLoading(true);
-    try {
-      await authApi.sendOtp(suEmail);
-      setStoredEmail(suEmail);
-      setSignupStep("otp");
-      setSuccessMsg("OTP sent! Check your email inbox.");
-    } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "Failed to send OTP.");
-    } finally {
-      setLoading(false);
-    }
-  }
-
   async function handleSignUp(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
-    // Note: OTP validation is done client-side via the email the user received.
-    // The backend does not expose the OTP — the user self-verifies.
-    if (suOtp.length < 4) {
-      setError("Please enter the 4-digit OTP from your email.");
-      return;
-    }
     setLoading(true);
     try {
       await authApi.signup({
         first_name: suFirstName,
         last_name: suLastName,
-        email: storedEmail,
+        email: suEmail,
         mobile: suMobile,
         password: suPassword,
       });
       setSuccessMsg("Account created! Please sign in.");
       setTab("signin");
-      setSiPayload(storedEmail);
-      setSignupStep("details");
+      setSiPayload(suEmail);
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Signup failed. Please try again.");
     } finally {
@@ -244,7 +217,7 @@ function LoginPage() {
             {(["signin", "signup"] as Tab[]).map((t) => (
               <button
                 key={t}
-                onClick={() => { setTab(t); setError(null); setSuccessMsg(null); setSignupStep("details"); }}
+                onClick={() => { setTab(t); setError(null); setSuccessMsg(null); }}
                 className={cn(
                   "flex-1 h-9 rounded-lg text-sm font-medium transition-all",
                   tab === t
@@ -318,9 +291,9 @@ function LoginPage() {
             )}
 
             {/* ── SIGN UP ────────────────────────────────────────────────── */}
-            {tab === "signup" && signupStep === "details" && (
+            {tab === "signup" && (
               <motion.div
-                key="signup-details"
+                key="signup"
                 initial={{ opacity: 0, x: 12 }}
                 animate={{ opacity: 1, x: 0 }}
                 exit={{ opacity: 0, x: -12 }}
@@ -328,10 +301,16 @@ function LoginPage() {
               >
                 <div className="mb-6">
                   <h2 className="text-2xl font-bold text-foreground">Create your account</h2>
-                  <p className="text-muted-foreground text-sm mt-1">We'll send a verification OTP to your email.</p>
+                  <p className="text-muted-foreground text-sm mt-1">Fill in your details to get started.</p>
                 </div>
 
-                <form onSubmit={handleSendOtp} className="space-y-4" id="signup-details-form">
+                {successMsg && (
+                  <div className="mb-4 flex items-center gap-2 rounded-xl bg-success/10 text-success border border-success/20 px-4 py-3 text-sm">
+                    <CheckCircle2 className="size-4 shrink-0" /> {successMsg}
+                  </div>
+                )}
+
+                <form onSubmit={handleSignUp} className="space-y-4" id="signup-form">
                   <div className="grid grid-cols-2 gap-3">
                     <FormField id="su-first" label="First name" icon={<User className="size-4" />} type="text" placeholder="Sara" value={suFirstName} onChange={setSuFirstName} required />
                     <FormField id="su-last" label="Last name" icon={<User className="size-4" />} type="text" placeholder="Ahmed" value={suLastName} onChange={setSuLastName} required />
@@ -348,76 +327,12 @@ function LoginPage() {
                   {error && <ErrorBanner msg={error} />}
 
                   <button
-                    id="send-otp-btn"
+                    id="create-account-btn"
                     type="submit"
                     disabled={loading}
                     className="w-full h-12 rounded-xl bg-primary text-primary-foreground font-semibold text-sm inline-flex items-center justify-center gap-2 hover:opacity-90 disabled:opacity-60 transition-opacity"
                   >
-                    {loading ? <Loader2 className="size-4 animate-spin" /> : <>Send OTP to Email <ArrowRight className="size-4" /></>}
-                  </button>
-                </form>
-              </motion.div>
-            )}
-
-            {tab === "signup" && signupStep === "otp" && (
-              <motion.div
-                key="signup-otp"
-                initial={{ opacity: 0, x: 12 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: -12 }}
-                transition={{ duration: 0.22 }}
-              >
-                <div className="mb-6">
-                  <div className="size-12 rounded-xl bg-primary/10 text-primary grid place-items-center mb-4">
-                    <Mail className="size-6" />
-                  </div>
-                  <h2 className="text-2xl font-bold text-foreground">Check your email</h2>
-                  <p className="text-muted-foreground text-sm mt-1">
-                    We sent a 4-digit OTP to <span className="font-medium text-foreground">{storedEmail}</span>. Enter it below to finish creating your account.
-                  </p>
-                </div>
-
-                {successMsg && (
-                  <div className="mb-4 flex items-center gap-2 rounded-xl bg-success/10 text-success border border-success/20 px-4 py-3 text-sm">
-                    <CheckCircle2 className="size-4 shrink-0" /> {successMsg}
-                  </div>
-                )}
-
-                <form onSubmit={handleSignUp} className="space-y-4" id="signup-otp-form">
-                  {/* OTP input */}
-                  <label className="block">
-                    <span className="text-sm font-medium text-foreground">Enter OTP</span>
-                    <input
-                      id="otp-input"
-                      type="text"
-                      inputMode="numeric"
-                      pattern="[0-9]*"
-                      maxLength={4}
-                      value={suOtp}
-                      onChange={(e) => setSuOtp(e.target.value.replace(/\D/g, ""))}
-                      placeholder="• • • •"
-                      className="mt-2 w-full h-14 rounded-xl border border-input bg-card text-center text-2xl font-semibold tracking-[1rem] focus:outline-none focus:ring-2 focus:ring-ring/40"
-                      required
-                    />
-                  </label>
-
-                  {error && <ErrorBanner msg={error} />}
-
-                  <button
-                    id="verify-otp-btn"
-                    type="submit"
-                    disabled={loading || suOtp.length < 4}
-                    className="w-full h-12 rounded-xl bg-primary text-primary-foreground font-semibold text-sm inline-flex items-center justify-center gap-2 hover:opacity-90 disabled:opacity-60 transition-opacity"
-                  >
-                    {loading ? <Loader2 className="size-4 animate-spin" /> : <>Create Account <CheckCircle2 className="size-4" /></>}
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => { setSignupStep("details"); setError(null); setSuOtp(""); }}
-                    className="w-full text-sm text-muted-foreground hover:text-foreground"
-                  >
-                    ← Back to details
+                    {loading ? <Loader2 className="size-4 animate-spin" /> : <>Create Account <ArrowRight className="size-4" /></>}
                   </button>
                 </form>
               </motion.div>

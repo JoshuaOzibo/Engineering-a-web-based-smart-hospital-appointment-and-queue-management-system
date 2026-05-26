@@ -134,8 +134,14 @@ export type BackendDepartment = {
 };
 
 export const departmentApi = {
-  getAll: () => api.get<BackendDepartment[]>("/department/getAllDepartment"),
-  getById: (id: string | number) => api.get<BackendDepartment>(`/department/getDepartment/${id}`),
+  getAll: async () => {
+    const res = await api.get<{ msg: string; allDepartments: BackendDepartment[] }>("/department/getAllDepartment");
+    return res.allDepartments;
+  },
+  getById: async (id: string | number) => {
+    const res = await api.get<{ msg: string; department: BackendDepartment }>(`/department/getDepartment/${id}`);
+    return res.department;
+  },
 };
 
 // Appointments

@@ -268,7 +268,7 @@ function QueuePage() {
 
           {/* Live stats */}
           <div className="rounded-2xl border border-border bg-card p-5 shadow-soft">
-            <div className="text-sm font-semibold mb-4">Queue stats — live</div>
+            <div className="text-sm font-semibold mb-4">Queue stats live</div>
             <dl className="space-y-3 text-sm">
               <StatRow k="Now serving"     v={liveQueue?.currentServing ? fmt(liveQueue.currentServing) : "—"} />
               <StatRow k="Patients waiting" v={String(liveQueue?.waitingCount ?? 0)} />

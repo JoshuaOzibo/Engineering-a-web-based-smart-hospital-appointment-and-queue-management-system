@@ -166,7 +166,7 @@ function NotificationsPage() {
 
           {/* SMS preview */}
           <div className="rounded-2xl border border-border bg-card p-5 shadow-soft">
-            <div className="text-sm font-semibold">Preview — SMS</div>
+            <div className="text-sm font-semibold">Preview SMS</div>
             <div className="mt-4 rounded-xl bg-surface p-4 text-sm">
               <div className="text-xs text-muted-foreground">St. Helena Medical · automated</div>
               <p className="mt-2">

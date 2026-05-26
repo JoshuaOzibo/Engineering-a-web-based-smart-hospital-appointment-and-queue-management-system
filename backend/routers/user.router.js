@@ -16,40 +16,11 @@ userRouter.get("/", async (req, res) => {
   res.send({ msg: "Home Page" });
 });
 
-// ── Send OTP email ────────────────────────────────────────────────────────────
+// ── Send OTP email (email sending disabled — signup works without SMTP) ────────
 userRouter.post("/emailVerify", async (req, res) => {
-  otp = otpGenerator.generate(4, {
-    upperCaseAlphabets: false,
-    specialChars: false,
-  });
-
   let { email } = req.body;
-
-  const transporter = nodemailer.createTransport({
-    service: "gmail",
-    auth: {
-      user: process.env.GMAIL_USER,
-      pass: process.env.GMAIL_PASS,
-    },
-  });
-
-  const mailOptions = {
-    from: process.env.GMAIL_USER,
-    to: email,
-    subject: "Here is your OTP for Mediqueue Login",
-    text: `Your OTP is: ${otp}. It expires shortly — do not share it.`,
-  };
-
-  transporter
-    .sendMail(mailOptions)
-    .then(() => {
-      // NOTE: OTP is NOT returned in the response — user must read their email
-      res.send({ msg: "OTP has been sent to your email", email });
-    })
-    .catch((e) => {
-      console.error("Mail error:", e);
-      res.status(500).send({ msg: "Failed to send OTP email" });
-    });
+  // Email delivery is currently disabled. Signup proceeds without OTP verification.
+  res.send({ msg: "Verification step skipped. Proceed to create your account.", email });
 });
 
 // ── Sign Up ───────────────────────────────────────────────────────────────────

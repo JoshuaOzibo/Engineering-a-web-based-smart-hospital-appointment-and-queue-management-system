@@ -6,9 +6,9 @@ import heroImg from "@/assets/hero-clinic.jpg";
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "Mediqueue — Smart Hospital Appointment & Queue Management" },
+      { title: "Mediqueue - Smart Hospital Appointment & Queue Management" },
       { name: "description", content: "Book appointments, join the queue from anywhere, and track your wait time in real time at St. Helena Medical Center." },
-      { property: "og:title", content: "Mediqueue — Smart Hospital Appointment & Queue Management" },
+      { property: "og:title", content: "Mediqueue - Smart Hospital Appointment & Queue Management" },
       { property: "og:description", content: "Book appointments, join the queue from anywhere, and track your wait time in real time." },
     ],
   }),
@@ -52,7 +52,7 @@ function Landing() {
                 Care that respects <span className="text-primary">your time.</span>
               </h1>
               <p className="mt-5 text-lg text-muted-foreground max-w-xl">
-                Book appointments, join the queue from home, and watch your wait time shrink in real time —
+                Book appointments, join the queue from home, and watch your wait time shrink in real time
                 so you arrive exactly when the doctor is ready.
               </p>
               <div className="mt-8 flex flex-wrap gap-3">
