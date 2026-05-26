@@ -9,24 +9,41 @@ const dashboardRouter = require("express").Router();
 
 dashboardRouter.post("/signin", async (req, res) => {
   let { email, password } = req.body;
+  console.log(`\n[ADMIN LOGIN] Attempt — email: ${email}`);
   try {
+    // Auto-seed default admin if none exists
+    const adminCount = await AdminModel.countDocuments();
+    if (adminCount === 0) {
+      const defaultAdmin = new AdminModel({
+        name: "Super Admin",
+        email: "admin@hospital.com",
+        password: "admin123",
+      });
+      await defaultAdmin.save();
+      console.log("[ADMIN LOGIN] 🛡️ Seeded default admin: admin@hospital.com / admin123");
+    }
+
     let admin = await AdminModel.findOne({ email: email });
     if (admin) {
       if (password === admin.password) {
+        console.log(`[ADMIN LOGIN] ✅ Success — admin: ${email}`);
         res.send({
           message: "Login Successful",
         });
       } else {
+        console.log(`[ADMIN LOGIN] ❌ Wrong password — admin: ${email}`);
         res.send({
           message: "Wrong Admin Password",
         });
       }
     } else {
+      console.log(`[ADMIN LOGIN] ❌ Admin not found — email: ${email}`);
       res.send({
         message: "Wrong Admin Email",
       });
     }
   } catch (e) {
+    console.error(`[ADMIN LOGIN] ❌ Error:`, e.message);
     res.send({ msg: "Error in Login" + e });
   }
 });

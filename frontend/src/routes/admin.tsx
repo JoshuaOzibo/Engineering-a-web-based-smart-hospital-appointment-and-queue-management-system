@@ -105,6 +105,15 @@ function AdminLogin({ onSuccess }: { onSuccess: (email: string) => void }) {
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-4">
+            <div className="rounded-xl bg-primary/5 border border-primary/10 p-3.5 text-xs text-muted-foreground space-y-1.5 mb-2">
+              <div className="font-semibold text-foreground flex items-center gap-1.5 text-[13px]">
+                <ShieldCheck className="size-4 text-primary" />
+                Default Credentials
+              </div>
+              <p>Email: <code className="bg-muted px-1.5 py-0.5 rounded text-foreground font-mono text-[11px] font-semibold">admin@hospital.com</code></p>
+              <p>Password: <code className="bg-muted px-1.5 py-0.5 rounded text-foreground font-mono text-[11px] font-semibold">admin123</code></p>
+            </div>
+
             <label className="block">
               <span className="text-sm font-medium">Admin email</span>
               <div className="relative mt-1.5">
