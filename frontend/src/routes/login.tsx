@@ -176,7 +176,7 @@ function LoginPage() {
           className="relative z-10 rounded-2xl bg-white/10 backdrop-blur-md border border-white/20 p-5"
         >
           <div className="flex items-center justify-between mb-3">
-            <span className="text-white/80 text-xs font-medium uppercase tracking-wider">Cardiology — Live</span>
+            <span className="text-white/80 text-xs font-medium uppercase tracking-wider">Cardiology Live</span>
             <span className="flex items-center gap-1.5 text-xs font-medium bg-white/20 text-white px-2.5 py-1 rounded-full">
               <span className="size-1.5 rounded-full bg-green-400 animate-pulse" />
               4 in queue

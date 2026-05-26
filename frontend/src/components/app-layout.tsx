@@ -3,6 +3,8 @@ import { Calendar, LayoutDashboard, Users, Activity, Bell, Stethoscope, ShieldCh
 import { ReactNode } from "react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/lib/auth";
+import { useQuery } from "@tanstack/react-query";
+import { doctorApi } from "@/lib/api";
 
 const nav = [
   { to: "/dashboard", label: "Overview", icon: LayoutDashboard, group: "Patient" },
@@ -10,14 +12,48 @@ const nav = [
   { to: "/queue", label: "Live Queue", icon: Activity, group: "Patient" },
   { to: "/notifications", label: "Notifications", icon: Bell, group: "Patient" },
   { to: "/doctor", label: "Doctor Console", icon: Stethoscope, group: "Staff" },
-  { to: "/admin", label: "Admin Center", icon: ShieldCheck, group: "Staff" },
 ] as const;
 
 export function AppLayout({ children, title, subtitle, actions }: { children: ReactNode; title: string; subtitle?: string; actions?: ReactNode }) {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const { user, isAuthenticated, logout } = useAuth();
 
-  const groups = ["Patient", "Staff"] as const;
+  // Retrieve admin session
+  const adminSession = typeof window !== "undefined"
+    ? (() => {
+        try {
+          return JSON.parse(localStorage.getItem("mq_admin") ?? "null") as { email: string } | null;
+        } catch {
+          return null;
+        }
+      })()
+    : null;
+  const isAdmin = !!adminSession;
+
+  // Retrieve doctors to check if user's email belongs to an approved doctor
+  const { data: doctorData } = useQuery({
+    queryKey: ["doctors"],
+    queryFn: () => doctorApi.getAll(),
+    staleTime: 1000 * 60 * 5,
+    enabled: isAuthenticated && !!user?.email,
+  });
+
+  const isDoctor = isAuthenticated && !!user?.email &&
+    (doctorData?.doctor ?? []).some(d => d.email.toLowerCase() === user.email.toLowerCase() && d.status);
+
+  // Filter groups & navigation links based on role
+  const showStaffGroup = isAdmin || isDoctor;
+  const groups = showStaffGroup ? (["Patient", "Staff"] as const) : (["Patient"] as const);
+
+  const filteredNav = nav.filter((item) => {
+    if (item.group === "Staff") {
+      if (item.to === "/doctor") {
+        return isAdmin || isDoctor;
+      }
+      return false;
+    }
+    return true;
+  });
 
   // Derive initials from name
   const initials = user
@@ -41,7 +77,7 @@ export function AppLayout({ children, title, subtitle, actions }: { children: Re
             <div key={g}>
               <div className="px-3 mb-2 text-[11px] font-medium uppercase tracking-wider text-muted-foreground">{g}</div>
               <ul className="space-y-1">
-                {nav.filter((n) => n.group === g).map((item) => {
+                {filteredNav.filter((n) => n.group === g).map((item) => {
                   const active = pathname === item.to || pathname.startsWith(item.to + "/");
                   return (
                     <li key={item.to}>
@@ -67,14 +103,34 @@ export function AppLayout({ children, title, subtitle, actions }: { children: Re
 
         {/* User card */}
         <div className="m-3 rounded-xl border border-sidebar-border bg-card p-4">
-          {isAuthenticated && user ? (
+          {isAdmin ? (
+            <div className="flex items-center gap-3">
+              <div className="size-9 rounded-full bg-primary text-primary-foreground grid place-items-center text-sm font-semibold">
+                AD
+              </div>
+              <div className="leading-tight flex-1 min-w-0">
+                <div className="text-sm font-medium text-foreground truncate">System Admin</div>
+                <div className="text-xs text-muted-foreground truncate">{adminSession.email}</div>
+              </div>
+              <button
+                onClick={() => {
+                  localStorage.removeItem("mq_admin");
+                  window.location.href = "/admin";
+                }}
+                title="Sign out Admin"
+                className="size-8 grid place-items-center rounded-lg hover:bg-muted text-muted-foreground"
+              >
+                <LogOut className="size-4" />
+              </button>
+            </div>
+          ) : isAuthenticated && user ? (
             <div className="flex items-center gap-3">
               <div className="size-9 rounded-full bg-primary text-primary-foreground grid place-items-center text-sm font-semibold">
                 {initials}
               </div>
               <div className="leading-tight flex-1 min-w-0">
                 <div className="text-sm font-medium text-foreground truncate">{user.name} {user.last_name}</div>
-                <div className="text-xs text-muted-foreground truncate">Patient · {user.email}</div>
+                <div className="text-xs text-muted-foreground truncate">{isDoctor ? "Doctor" : "Patient"} · {user.email}</div>
               </div>
               <button
                 onClick={logout}

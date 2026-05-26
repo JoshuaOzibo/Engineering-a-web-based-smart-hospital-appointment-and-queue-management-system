@@ -1,6 +1,6 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { AppLayout } from "@/components/app-layout";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import {
@@ -100,6 +100,34 @@ function Dashboard() {
   const queryClient = useQueryClient();
 
   const [rescheduleAppt, setRescheduleAppt] = useState<BackendAppointment | null>(null);
+
+  // Retrieve admin session to redirect admins to their portal
+  const adminSession = typeof window !== "undefined"
+    ? (() => {
+        try {
+          return JSON.parse(localStorage.getItem("mq_admin") ?? "null") as { email: string } | null;
+        } catch {
+          return null;
+        }
+      })()
+    : null;
+  const isAdmin = !!adminSession;
+
+  useEffect(() => {
+    if (isAdmin) {
+      navigate({ to: "/admin", replace: true });
+    }
+  }, [isAdmin, navigate]);
+
+  if (isAdmin) {
+    return (
+      <AppLayout title="Hospital Operations" subtitle="Accessing Admin Center…">
+        <div className="flex items-center justify-center py-32">
+          <Loader2 className="size-8 animate-spin text-primary" />
+        </div>
+      </AppLayout>
+    );
+  }
 
   // ── Fetch appointments ──────────────────────────────────────────────────────
   const {
