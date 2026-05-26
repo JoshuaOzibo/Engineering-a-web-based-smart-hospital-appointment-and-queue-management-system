@@ -94,9 +94,9 @@ function LoginPage() {
         mobile: suMobile,
         password: suPassword,
       });
-      setSuccessMsg("Account created! Please sign in.");
-      setTab("signin");
-      setSiPayload(suEmail);
+      // Auto-login immediately after signup so user lands on the dashboard
+      await login(suEmail, suPassword);
+      navigate({ to: "/dashboard" });
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Signup failed. Please try again.");
     } finally {

@@ -167,7 +167,9 @@ function Dashboard() {
     );
   }
 
-  const greeting = `Welcome back, ${user?.name ?? ""}`;
+  const hour = new Date().getHours();
+  const timeGreeting = hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening";
+  const greeting = `${timeGreeting}, ${user?.name ?? ""}`;
 
   return (
     <>

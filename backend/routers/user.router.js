@@ -27,14 +27,18 @@ userRouter.post("/emailVerify", async (req, res) => {
 userRouter.post("/signup", async (req, res) => {
   let { first_name, last_name, email, mobile, password } = req.body;
 
+  console.log(`\n[SIGNUP] Attempt — email: ${email}, mobile: ${mobile}`);
+
   const isPresent = await UserModel.findOne({ email });
   if (isPresent) {
+    console.log(`[SIGNUP] ❌ Already registered — email: ${email}`);
     return res.status(409).send({ msg: "User already registered" });
   }
 
   try {
     bcrypt.hash(password, 5, async (err, hash) => {
       if (err) {
+        console.error(`[SIGNUP] ❌ Bcrypt error for ${email}:`, err.message);
         return res.status(500).send({ msg: "Error hashing password" });
       }
       const user = new UserModel({
@@ -45,9 +49,11 @@ userRouter.post("/signup", async (req, res) => {
         password: hash,
       });
       await user.save();
+      console.log(`[SIGNUP] ✅ Success — ${first_name} ${last_name} <${email}> (id: ${user._id})`);
       res.status(201).send({ msg: "Signup Successful" });
     });
   } catch (error) {
+    console.error(`[SIGNUP] ❌ Error for ${email}:`, error.message);
     res.status(500).send({ msg: "Error during signup" });
   }
 });
@@ -56,6 +62,8 @@ userRouter.post("/signup", async (req, res) => {
 userRouter.post("/signin", async (req, res) => {
   let { payload, password } = req.body;
 
+  console.log(`\n[LOGIN] Attempt — identifier: ${payload}`);
+
   try {
     // Try email first, then mobile
     let user =
@@ -63,11 +71,13 @@ userRouter.post("/signin", async (req, res) => {
       (await UserModel.findOne({ mobile: payload }));
 
     if (!user) {
+      console.log(`[LOGIN] ❌ User not found — identifier: ${payload}`);
       return res.status(404).send({ msg: "User not Found" });
     }
 
     const result = await bcrypt.compare(password, user.password);
     if (!result) {
+      console.log(`[LOGIN] ❌ Wrong password — user: ${user.email}`);
       return res.status(401).send({ msg: "Wrong Password" });
     }
 
@@ -76,6 +86,8 @@ userRouter.post("/signin", async (req, res) => {
       { userID: user._id, email: user.email },
       process.env.key
     );
+
+    console.log(`[LOGIN] ✅ Success — ${user.first_name} ${user.last_name} <${user.email}> (id: ${user._id})`);
 
     res.send({
       message: "Login Successful",
@@ -86,7 +98,7 @@ userRouter.post("/signin", async (req, res) => {
       mobile: user.mobile,
     });
   } catch (e) {
-    console.error("Signin error:", e);
+    console.error(`[LOGIN] ❌ Error for ${payload}:`, e.message);
     res.status(500).send({ msg: "Error in Login" });
   }
 });
