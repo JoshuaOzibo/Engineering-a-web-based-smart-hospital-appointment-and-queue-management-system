@@ -11,13 +11,30 @@ import {
 } from "lucide-react";
 import { LineChart, Line, ResponsiveContainer, XAxis, YAxis, Tooltip, CartesianGrid } from "recharts";
 import { cn } from "@/lib/utils";
-import { doctorApi, appointmentApi, queueApi, type BackendDoctor, type BackendAppointment } from "@/lib/api";
+import { doctorApi, appointmentApi, queueApi, type BackendDoctor, type BackendAppointment, type UpdateDoctorProfileBody } from "@/lib/api";
 import { useQueueSSE } from "@/lib/useQueueSSE";
+
+const NIGERIAN_CITIES = [
+  "Lagos", "Abuja", "Kano", "Ibadan", "Port Harcourt", "Benin City",
+  "Maiduguri", "Enugu", "Kaduna", "Ilorin", "Onitsha", "Warri",
+  "Aba", "Owerri", "Abeokuta", "Sokoto", "Uyo", "Calabar",
+  "Akure", "Jos", "Bauchi", "Zaria", "Asaba", "Yola", "Minna",
+];
 
 export const Route = createFileRoute("/doctor")({
   head: () => ({ meta: [{ title: "Doctor Console — Mediqueue" }] }),
   component: DoctorPage,
 });
+
+const todayPlus = (days: number) => {
+  const d = new Date();
+  d.setDate(d.getDate() + days);
+  return d.toISOString().split("T")[0];
+};
+
+const formatDate = (date: string) => new Date(date).toLocaleDateString("en-NG", { month: "short", day: "numeric", weekday: "short" });
+const isToday = (date: string | undefined): boolean =>
+  !!date && date.slice(0, 10) === new Date().toISOString().split("T")[0];
 
 const trend = Array.from({ length: 8 }, (_, i) => ({ h: `${8 + i}:00`, seen: 2 + Math.round(Math.sin(i / 2) * 2 + i / 2) }));
 
@@ -34,6 +51,15 @@ function DoctorPage() {
   // Slot management state
   const [slotDate, setSlotDate] = useState(todayPlus(1));
   const [selectedSlots, setSelectedSlots] = useState<string[]>([]);
+
+  // ── Profile edit form state ─────────────────────────────────────────────────
+  const [profileCity, setProfileCity] = useState("");
+  const [profileDeptId, setProfileDeptId] = useState("");
+  const [profileName, setProfileName] = useState("");
+  const [profileQuals, setProfileQuals] = useState("");
+  const [profileExp, setProfileExp] = useState("");
+  const [profilePhone, setProfilePhone] = useState("");
+  const [profileAvail, setProfileAvail] = useState(true);
 
   // Retrieve admin session
   const adminSession = typeof window !== "undefined"
@@ -76,6 +102,19 @@ function DoctorPage() {
     }
   }, [drLoading, isAdmin, loggedInDoctor, navigate, selectedDoctorId]);
 
+  // Pre-fill profile form whenever the selected doctor changes
+  useEffect(() => {
+    if (doctor) {
+      setProfileName(doctor.doctorName ?? "");
+      setProfileQuals(doctor.qualifications ?? "");
+      setProfileExp(doctor.experience ?? "");
+      setProfilePhone(doctor.phoneNo ?? "");
+      setProfileCity(doctor.city ?? "");
+      setProfileDeptId(String(doctor.departmentId ?? ""));
+      setProfileAvail(doctor.isAvailable ?? true);
+    }
+  }, [doctor]);
+
   // ── Fetch only appointments for the selected doctor ─────────────────────────
   const { data: apptData, isLoading: apptLoading } = useQuery({
     queryKey: ["doctor-appointments", selectedDoctorId],
@@ -110,6 +149,27 @@ function DoctorPage() {
     },
     onSuccess: () => {
       toast.success("Slot removed.");
+      qc.invalidateQueries({ queryKey: ["doctors"] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  // ── Update profile mutation ─────────────────────────────────────────────────
+  const updateProfileMutation = useMutation({
+    mutationFn: () => {
+      const body: UpdateDoctorProfileBody = {
+        doctorName: profileName.trim() || undefined,
+        qualifications: profileQuals.trim() || undefined,
+        experience: profileExp.trim() || undefined,
+        phoneNo: profilePhone.trim() || undefined,
+        city: profileCity || undefined,
+        departmentId: profileDeptId ? Number(profileDeptId) : undefined,
+        isAvailable: profileAvail,
+      };
+      return doctorApi.updateProfile(selectedDoctorId, body);
+    },
+    onSuccess: () => {
+      toast.success("Profile updated successfully!");
       qc.invalidateQueries({ queryKey: ["doctors"] });
     },
     onError: (e: Error) => toast.error(e.message),
@@ -252,8 +312,100 @@ function DoctorPage() {
             </div>
           </div>
 
-          {/* ── Right: queue panel + chart + slot management ───────────────── */}
+          {/* ── Right: profile, queue panel, chart, slot management ───────────────── */}
           <div className="space-y-6">
+
+            {/* ── My Profile ─────────────────────────────────────────────── */}
+            <div className="rounded-2xl border border-border bg-card p-5 shadow-soft">
+              <div className="text-sm font-semibold mb-4">My profile</div>
+
+              <div className="space-y-3">
+                <label className="block">
+                  <span className="text-xs text-muted-foreground">Full name</span>
+                  <input
+                    value={profileName}
+                    onChange={(e) => setProfileName(e.target.value)}
+                    placeholder="Dr. John Doe"
+                    className="mt-1 w-full h-10 px-3 rounded-xl border border-input bg-surface text-sm focus:outline-none focus:ring-2 focus:ring-ring/40"
+                  />
+                </label>
+
+                <label className="block">
+                  <span className="text-xs text-muted-foreground">Qualifications / Specialty</span>
+                  <input
+                    value={profileQuals}
+                    onChange={(e) => setProfileQuals(e.target.value)}
+                    placeholder="e.g. MBBS, Cardiology"
+                    className="mt-1 w-full h-10 px-3 rounded-xl border border-input bg-surface text-sm focus:outline-none focus:ring-2 focus:ring-ring/40"
+                  />
+                </label>
+
+                <label className="block">
+                  <span className="text-xs text-muted-foreground">Years of experience</span>
+                  <input
+                    value={profileExp}
+                    onChange={(e) => setProfileExp(e.target.value)}
+                    placeholder="e.g. 8"
+                    className="mt-1 w-full h-10 px-3 rounded-xl border border-input bg-surface text-sm focus:outline-none focus:ring-2 focus:ring-ring/40"
+                  />
+                </label>
+
+                <label className="block">
+                  <span className="text-xs text-muted-foreground">Phone number</span>
+                  <input
+                    value={profilePhone}
+                    onChange={(e) => setProfilePhone(e.target.value)}
+                    placeholder="+234 800 000 0000"
+                    className="mt-1 w-full h-10 px-3 rounded-xl border border-input bg-surface text-sm focus:outline-none focus:ring-2 focus:ring-ring/40"
+                  />
+                </label>
+
+                <label className="block">
+                  <span className="text-xs text-muted-foreground">City / Location</span>
+                  <select
+                    value={profileCity}
+                    onChange={(e) => setProfileCity(e.target.value)}
+                    className="mt-1 w-full h-10 px-3 rounded-xl border border-input bg-surface text-sm focus:outline-none focus:ring-2 focus:ring-ring/40"
+                  >
+                    <option value="">— Select city —</option>
+                    {NIGERIAN_CITIES.map((c) => (
+                      <option key={c} value={c}>{c}</option>
+                    ))}
+                  </select>
+                </label>
+
+                <label className="block">
+                  <span className="text-xs text-muted-foreground">Department ID</span>
+                  <input
+                    type="number"
+                    value={profileDeptId}
+                    onChange={(e) => setProfileDeptId(e.target.value)}
+                    placeholder="e.g. 1"
+                    className="mt-1 w-full h-10 px-3 rounded-xl border border-input bg-surface text-sm focus:outline-none focus:ring-2 focus:ring-ring/40"
+                  />
+                </label>
+
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={profileAvail}
+                    onChange={(e) => setProfileAvail(e.target.checked)}
+                    className="rounded"
+                  />
+                  <span className="text-sm text-foreground">Mark me as available for bookings</span>
+                </label>
+              </div>
+
+              <button
+                onClick={() => updateProfileMutation.mutate()}
+                disabled={updateProfileMutation.isPending}
+                className="mt-4 w-full h-10 rounded-xl bg-primary text-primary-foreground text-sm font-medium inline-flex items-center justify-center gap-2 disabled:opacity-50"
+              >
+                {updateProfileMutation.isPending
+                  ? <><Loader2 className="size-4 animate-spin" /> Saving…</>
+                  : "Save profile"}
+              </button>
+            </div>
 
             {/* Live queue management panel */}
             {deptId && (
@@ -395,6 +547,7 @@ function DoctorPage() {
                   : <><Plus className="size-4" /> Add {selectedSlots.length > 0 ? selectedSlots.length : ""} slot{selectedSlots.length !== 1 ? "s" : ""}</>}
               </button>
             </div>
+
           </div>
         </div>
       )}
@@ -434,19 +587,4 @@ function Stat({ k, v, icon: Icon, tone }: { k: string; v: number; icon: React.El
       <div className="mt-2 text-2xl font-semibold tracking-tight">{v}</div>
     </div>
   );
-}
-
-function todayPlus(n: number) {
-  const d = new Date();
-  d.setDate(d.getDate() + n);
-  return d.toISOString().slice(0, 10);
-}
-
-function isToday(dateStr?: string) {
-  if (!dateStr) return false;
-  return dateStr.slice(0, 10) === todayPlus(0);
-}
-
-function formatDate(iso: string) {
-  return new Date(iso).toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" });
 }

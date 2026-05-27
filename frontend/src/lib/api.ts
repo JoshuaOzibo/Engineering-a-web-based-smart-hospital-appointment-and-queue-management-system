@@ -111,6 +111,16 @@ export type BackendDoctor = {
   slots: Record<string, string[]>;
 };
 
+export type UpdateDoctorProfileBody = {
+  doctorName?: string;
+  qualifications?: string;
+  experience?: string;
+  phoneNo?: string;
+  city?: string;
+  departmentId?: number;
+  isAvailable?: boolean;
+};
+
 export const doctorApi = {
   getAll: () => api.get<{ total: number; doctor: BackendDoctor[] }>("/doctor/allDoctor"),
   search: (q: string) => api.get<BackendDoctor[]>(`/doctor/search?q=${encodeURIComponent(q)}`),
@@ -118,6 +128,8 @@ export const doctorApi = {
     api.get<{ total: number; doctor: BackendDoctor[] }>(`/doctor/allDoctor/${departmentId}`),
   addSlots: (doctorId: string, date: string, slots: string[]) =>
     api.patch<{ msg: string }>(`/doctor/addSlots/${doctorId}`, { date, slots }),
+  updateProfile: (doctorId: string, body: UpdateDoctorProfileBody) =>
+    api.patch<{ msg: string; doctor: BackendDoctor }>(`/doctor/updateProfile/${doctorId}`, body),
   // Admin actions
   getPending: () => api.get<{ msg: string; docPending: BackendDoctor[] }>("/doctor/docPending"),
   updateStatus: (doctorId: string, status: boolean) =>

@@ -191,6 +191,32 @@ doctorRouter.patch("/isAvailable/:doctorId", async (req, res) => {
   }
 });
 
+// UPDATE DOCTOR PROFILE (self-service — called by the logged-in doctor)
+// Accepts: doctorName, qualifications, experience, phoneNo, city, departmentId, isAvailable
+doctorRouter.patch("/updateProfile/:doctorId", async (req, res) => {
+  const { doctorId } = req.params;
+  const allowedFields = ["doctorName", "qualifications", "experience", "phoneNo", "city", "departmentId", "isAvailable"];
+  const updatePayload = {};
+  for (const field of allowedFields) {
+    if (req.body[field] !== undefined) {
+      updatePayload[field] = req.body[field];
+    }
+  }
+
+  if (Object.keys(updatePayload).length === 0) {
+    return res.status(400).send({ msg: "No valid fields provided to update." });
+  }
+
+  try {
+    const doctor = await DoctorModel.findByIdAndUpdate(doctorId, updatePayload, { new: true });
+    if (!doctor) return res.status(404).send({ msg: "Doctor not found" });
+    res.send({ msg: "Profile updated successfully", doctor });
+  } catch (error) {
+    console.error("Update profile error:", error);
+    res.status(500).send({ msg: "Error updating doctor profile", error: error.message });
+  }
+});
+
 module.exports = {
   doctorRouter,
 };

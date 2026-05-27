@@ -20,10 +20,34 @@ export const Route = createFileRoute("/book")({
 
 const steps = ["Doctor", "Date & time", "Details", "Confirm"];
 
-const branches = [
-  "St. Helena — Main Campus",
-  "St. Helena — Westside Clinic",
-  "St. Helena — Riverside",
+// Nigerian cities for the location filter
+const NIGERIAN_CITIES = [
+  "All locations",
+  "Lagos",
+  "Abuja",
+  "Kano",
+  "Ibadan",
+  "Port Harcourt",
+  "Benin City",
+  "Maiduguri",
+  "Enugu",
+  "Kaduna",
+  "Ilorin",
+  "Onitsha",
+  "Warri",
+  "Aba",
+  "Owerri",
+  "Abeokuta",
+  "Sokoto",
+  "Uyo",
+  "Calabar",
+  "Akure",
+  "Jos",
+  "Bauchi",
+  "Zaria",
+  "Asaba",
+  "Yola",
+  "Minna",
 ];
 
 // Fallback avatar using initials
@@ -67,9 +91,9 @@ function BookPage() {
 
   const [step, setStep] = useState(0);
   const [deptFilter, setDeptFilter] = useState("All departments");
+  const [cityFilter, setCityFilter] = useState("All locations");
   const [query, setQuery] = useState("");
   const [doctor, setDoctor] = useState<BackendDoctor | null>(null);
-  const [branch, setBranch] = useState(branches[0]);
   const [date, setDate] = useState<string>(todayPlus(1));
   const [slot, setSlot] = useState<string>("");
 
@@ -110,18 +134,22 @@ function BookPage() {
     [doctorData]
   );
 
-  // Client-side filter by department + search query
+  // Client-side filter by department + city + search query
   const filtered = useMemo(
     () =>
       allDoctors.filter((d) => {
         const matchDept = selectedDeptId === null || d.departmentId === selectedDeptId;
+        const matchCity =
+          cityFilter === "All locations" ||
+          d.city.toLowerCase() === cityFilter.toLowerCase();
         const matchQuery =
           query === "" ||
           d.doctorName.toLowerCase().includes(query.toLowerCase()) ||
-          d.qualifications.toLowerCase().includes(query.toLowerCase());
-        return matchDept && matchQuery;
+          d.qualifications.toLowerCase().includes(query.toLowerCase()) ||
+          d.city.toLowerCase().includes(query.toLowerCase());
+        return matchDept && matchCity && matchQuery;
       }),
-    [allDoctors, selectedDeptId, query]
+    [allDoctors, selectedDeptId, cityFilter, query]
   );
 
   // Available time slots for the selected doctor on the selected date
@@ -201,11 +229,11 @@ function BookPage() {
               onChange={(v) => { setDeptFilter(v); setDoctor(null); }}
               options={["All departments", ...(deptLoading ? [] : departmentNames)]}
             />
-            {/* Branch */}
+            {/* Location / City filter */}
             <SelectInput
-              value={branch}
-              onChange={setBranch}
-              options={branches}
+              value={cityFilter}
+              onChange={(v) => { setCityFilter(v); setDoctor(null); }}
+              options={NIGERIAN_CITIES}
               icon={<MapPin className="size-4" />}
             />
           </div>
@@ -223,12 +251,34 @@ function BookPage() {
               <div className="text-sm text-muted-foreground">Could not load doctors. Make sure the backend is running.</div>
             </div>
           ) : filtered.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-16 text-center gap-3">
-              <Stethoscope className="size-10 text-muted-foreground" />
-              <div className="text-sm text-muted-foreground">
-                {allDoctors.length === 0
-                  ? "No approved doctors found in the database yet."
-                  : "No doctors match your search. Try a different filter."}
+            <div className="flex flex-col items-center justify-center py-16 text-center gap-4 rounded-2xl border border-border bg-card p-8">
+              <div className="size-14 rounded-2xl bg-primary/10 text-primary grid place-items-center">
+                <Stethoscope className="size-7" />
+              </div>
+              <div>
+                {allDoctors.length === 0 ? (
+                  <>
+                    <p className="font-semibold text-foreground">No available doctors yet</p>
+                    <p className="text-sm text-muted-foreground mt-1 max-w-sm">
+                      Doctors must be added and approved by the hospital admin before they appear here.
+                      If you are a doctor, log in to the Doctor Console and use the <strong>My Profile</strong> panel
+                      to set your department and city, then ask the admin to approve your account.
+                    </p>
+                  </>
+                ) : (
+                  <>
+                    <p className="font-semibold text-foreground">No doctors match your filters</p>
+                    <p className="text-sm text-muted-foreground mt-1">
+                      Try clearing the department or location filter.
+                    </p>
+                    <button
+                      onClick={() => { setDeptFilter("All departments"); setCityFilter("All locations"); setQuery(""); }}
+                      className="mt-3 h-9 px-4 rounded-xl bg-primary text-primary-foreground text-sm font-medium"
+                    >
+                      Clear all filters
+                    </button>
+                  </>
+                )}
               </div>
             </div>
           ) : (
