@@ -116,12 +116,15 @@ function Dashboard() {
   useEffect(() => {
     if (isAdmin) {
       navigate({ to: "/admin", replace: true });
+    } else if (!authLoading && !isAuthenticated) {
+      toast.error("Authentication required: Please sign in to access your dashboard.");
+      navigate({ to: "/login", replace: true });
     }
-  }, [isAdmin, navigate]);
+  }, [isAdmin, authLoading, isAuthenticated, navigate]);
 
-  if (isAdmin) {
+  if (authLoading || isAdmin || !isAuthenticated) {
     return (
-      <AppLayout title="Hospital Operations" subtitle="Accessing Admin Center…">
+      <AppLayout title="My Dashboard" subtitle="Loading dashboard…">
         <div className="flex items-center justify-center py-32">
           <Loader2 className="size-8 animate-spin text-primary" />
         </div>
@@ -159,41 +162,6 @@ function Dashboard() {
       toast.error(err.message || "Failed to cancel appointment.");
     },
   });
-
-  // ── Auth guard ──────────────────────────────────────────────────────────────
-  if (authLoading) {
-    return (
-      <AppLayout title="My Dashboard" subtitle="Loading your profile…">
-        <div className="flex items-center justify-center py-32">
-          <Loader2 className="size-8 animate-spin text-primary" />
-        </div>
-      </AppLayout>
-    );
-  }
-
-  if (!isAuthenticated) {
-    return (
-      <AppLayout title="My Dashboard" subtitle="Sign in to access your patient dashboard.">
-        <div className="flex flex-col items-center justify-center py-24 text-center gap-6">
-          <div className="size-16 rounded-2xl bg-primary/10 text-primary grid place-items-center">
-            <LogIn className="size-8" />
-          </div>
-          <div>
-            <h2 className="text-xl font-semibold">You're not signed in</h2>
-            <p className="mt-2 text-muted-foreground text-sm max-w-sm">
-              Your appointments and queue status are only visible after signing in.
-            </p>
-          </div>
-          <button
-            onClick={() => navigate({ to: "/login" })}
-            className="h-11 px-6 rounded-xl bg-primary text-primary-foreground text-sm font-medium inline-flex items-center gap-2"
-          >
-            <LogIn className="size-4" /> Sign in
-          </button>
-        </div>
-      </AppLayout>
-    );
-  }
 
   const hour = new Date().getHours();
   const timeGreeting = hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening";

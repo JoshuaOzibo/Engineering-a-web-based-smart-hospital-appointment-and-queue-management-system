@@ -59,12 +59,6 @@ function Landing() {
                 <Link to="/book" className="inline-flex items-center gap-2 h-12 px-5 rounded-xl bg-primary text-primary-foreground font-medium hover:opacity-95">
                   <Calendar className="size-4" /> Book appointment
                 </Link>
-                <Link to="/queue" className="inline-flex items-center gap-2 h-12 px-5 rounded-xl border border-border bg-card text-foreground font-medium hover:bg-muted">
-                  <Activity className="size-4" /> Join the queue
-                </Link>
-                <Link to="/book" className="inline-flex items-center gap-2 h-12 px-5 rounded-xl text-foreground font-medium hover:bg-muted">
-                  <Stethoscope className="size-4" /> Find a doctor
-                </Link>
               </div>
               <dl className="mt-10 grid grid-cols-3 gap-6 max-w-md">
                 {[

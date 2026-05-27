@@ -1,7 +1,7 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { AppLayout } from "@/components/app-layout";
 import { motion, AnimatePresence } from "framer-motion";
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { Bell, Clock, Users, ChevronRight, Loader2, LogIn, X, CheckCircle2 } from "lucide-react";
@@ -21,7 +21,15 @@ function fmt(n: number) {
 }
 
 function QueuePage() {
-  const { user, isAuthenticated } = useAuth();
+  const navigate = useNavigate();
+  const { user, isAuthenticated, isLoading } = useAuth();
+  
+  useEffect(() => {
+    if (!isLoading && !isAuthenticated) {
+      toast.error("Authentication required: Please sign in to view the live queue.");
+      navigate({ to: "/login", replace: true });
+    }
+  }, [isAuthenticated, isLoading, navigate]);
   const qc = useQueryClient();
 
   // Fetch real departments from API

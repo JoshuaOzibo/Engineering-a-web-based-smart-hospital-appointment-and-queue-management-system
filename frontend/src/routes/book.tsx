@@ -1,6 +1,6 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { AppLayout } from "@/components/app-layout";
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { motion } from "framer-motion";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -56,7 +56,14 @@ function DoctorAvatar({ name, image, size = "lg" }: { name: string; image?: stri
 
 function BookPage() {
   const navigate = useNavigate();
-  const { user, isAuthenticated } = useAuth();
+  const { user, isAuthenticated, isLoading } = useAuth();
+
+  useEffect(() => {
+    if (!isLoading && !isAuthenticated) {
+      toast.error("Authentication required: Please sign in to book an appointment.");
+      navigate({ to: "/login", replace: true });
+    }
+  }, [isAuthenticated, isLoading, navigate]);
 
   const [step, setStep] = useState(0);
   const [deptFilter, setDeptFilter] = useState("All departments");
