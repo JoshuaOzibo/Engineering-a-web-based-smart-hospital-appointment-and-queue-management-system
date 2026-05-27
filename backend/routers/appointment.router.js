@@ -251,6 +251,33 @@ appointmentRouter.patch("/reschedule/:appointmentId", authenticate, async (req, 
   }
 });
 
+// GET all appointments for a specific doctor (auth required)
+appointmentRouter.get("/doctor/:doctorId", authenticate, async (req, res) => {
+  const { doctorId } = req.params;
+  const userEmail = req.body.email; // Filled by authenticate middleware
+  try {
+    // Check if requester is an admin
+    const { AdminModel } = require("../models/admin.model");
+    const isAdmin = await AdminModel.findOne({ email: userEmail });
+
+    if (!isAdmin) {
+      // If not admin, verify requester is the doctor themselves
+      const doctor = await DoctorModel.findById(doctorId);
+      if (!doctor || doctor.email.toLowerCase() !== userEmail.toLowerCase()) {
+        return res.status(403).json({ msg: "Access denied. You can only view your own appointments." });
+      }
+    }
+
+    const appointments = await AppointmentModel.find({ doctorId });
+    res.status(200).json({
+      message: "Doctor appointments retrieved successfully",
+      appointments,
+    });
+  } catch (error) {
+    res.status(500).send({ msg: "Error retrieving doctor appointments", error: error.message });
+  }
+});
+
 //!! ─── ADMIN OPERATIONS ───────────────────────────────────────────────────────
 
 // GET all appointments (admin)

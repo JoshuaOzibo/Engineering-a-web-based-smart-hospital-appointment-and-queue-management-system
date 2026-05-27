@@ -8,6 +8,7 @@ const appointmentSchema = mongoose.Schema({
   doctorId: {
     type: String,
     required: true,
+    index: true,
   },
   patientFirstName:{
     type: String,
@@ -35,7 +36,8 @@ const appointmentSchema = mongoose.Schema({
   },
   appointmentDate: {
     type: String,
-    required: true
+    required: true,
+    index: true,
   },
   createdAt: {
     type: Date,

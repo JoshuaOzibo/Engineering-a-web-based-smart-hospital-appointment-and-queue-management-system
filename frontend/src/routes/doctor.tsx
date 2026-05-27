@@ -1,8 +1,9 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { AppLayout } from "@/components/app-layout";
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
+import { useAuth } from "@/lib/auth";
 import {
   Activity, CheckCircle2, Clock, Users, Stethoscope,
   Plus, Loader2, WifiOff, CalendarDays, Star, Trash2,
@@ -26,11 +27,25 @@ const DEFAULT_SLOTS = ["08:00","08:30","09:00","09:30","10:00","10:30","11:00","
 
 function DoctorPage() {
   const qc = useQueryClient();
+  const navigate = useNavigate();
+  const { user, isAuthenticated } = useAuth();
   const [selectedDoctorId, setSelectedDoctorId] = useState<string>("");
 
   // Slot management state
   const [slotDate, setSlotDate] = useState(todayPlus(1));
   const [selectedSlots, setSelectedSlots] = useState<string[]>([]);
+
+  // Retrieve admin session
+  const adminSession = typeof window !== "undefined"
+    ? (() => {
+        try {
+          return JSON.parse(localStorage.getItem("mq_admin") ?? "null") as { email: string } | null;
+        } catch {
+          return null;
+        }
+      })()
+    : null;
+  const isAdmin = !!adminSession;
 
   // ── Fetch all approved doctors ──────────────────────────────────────────────
   const { data: doctorData, isLoading: drLoading } = useQuery({
@@ -44,16 +59,33 @@ function DoctorPage() {
   );
   const doctor = doctors.find((d) => d._id === selectedDoctorId) ?? null;
 
-  // ── Fetch all appointments (admin view) for the selected doctor ─────────────
+  // Auto-detect logged-in doctor profile
+  const loggedInDoctor = useMemo(() => {
+    if (!isAuthenticated || !user?.email) return null;
+    return doctors.find((d) => d.email.toLowerCase() === user.email.toLowerCase()) ?? null;
+  }, [doctors, isAuthenticated, user]);
+
+  useEffect(() => {
+    if (!drLoading) {
+      if (!isAdmin && !loggedInDoctor) {
+        toast.error("Access Denied: You are not registered as an approved doctor.");
+        navigate({ to: "/dashboard", replace: true });
+      } else if (loggedInDoctor && selectedDoctorId !== loggedInDoctor._id) {
+        setSelectedDoctorId(loggedInDoctor._id);
+      }
+    }
+  }, [drLoading, isAdmin, loggedInDoctor, navigate, selectedDoctorId]);
+
+  // ── Fetch only appointments for the selected doctor ─────────────────────────
   const { data: apptData, isLoading: apptLoading } = useQuery({
     queryKey: ["doctor-appointments", selectedDoctorId],
-    queryFn: () => appointmentApi.getAllAdmin(),
+    queryFn: () => appointmentApi.getDoctorAppointments(selectedDoctorId),
     enabled: !!selectedDoctorId,
     staleTime: 1000 * 30,
   });
   const myAppointments = useMemo(
-    () => (apptData?.appointments ?? []).filter((a) => a.doctorId === selectedDoctorId),
-    [apptData, selectedDoctorId],
+    () => apptData?.appointments ?? [],
+    [apptData],
   );
   const todayAppts = myAppointments.filter((a) => isToday(a.appointmentDate));
   const upcomingAppts = myAppointments.filter((a) => !isToday(a.appointmentDate) && !a.status);
@@ -119,6 +151,11 @@ function DoctorPage() {
         ) : doctors.length === 0 ? (
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
             <WifiOff className="size-4" /> No approved doctors found in the database.
+          </div>
+                ) : loggedInDoctor ? (
+          <div className="flex items-center gap-2 h-11 px-4 rounded-xl bg-primary/10 border border-primary/20 text-primary text-sm font-semibold">
+            <Stethoscope className="size-4" />
+            <span>Console: Dr. {loggedInDoctor.doctorName}</span>
           </div>
         ) : (
           <div className="relative">

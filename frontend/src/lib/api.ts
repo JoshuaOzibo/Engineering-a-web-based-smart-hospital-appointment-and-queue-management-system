@@ -181,6 +181,8 @@ export const appointmentApi = {
     api.delete<{ message: string }>(`/appointment/cancel/${appointmentId}`),
   reschedule: (appointmentId: string, body: Partial<CreateAppointmentBody>) =>
     api.patch<{ message: string }>(`/appointment/reschedule/${appointmentId}`, body),
+  getDoctorAppointments: (doctorId: string) =>
+    api.get<{ message: string; appointments: BackendAppointment[] }>(`/appointment/doctor/${doctorId}`),
   // Admin actions
   getAllAdmin: () =>
     api.get<{ message: string; appointments: BackendAppointment[] }>("/appointment/all"),
