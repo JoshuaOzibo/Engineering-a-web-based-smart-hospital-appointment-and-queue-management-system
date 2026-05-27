@@ -11,7 +11,7 @@ import { useQueueSSE } from "@/lib/useQueueSSE";
 import { useAuth } from "@/lib/auth";
 
 export const Route = createFileRoute("/queue")({
-  head: () => ({ meta: [{ title: "Live Queue — Mediqueue" }] }),
+  head: () => ({ meta: [{ title: "Live Queue Mediqueue" }] }),
   component: QueuePage,
 });
 
