@@ -10,7 +10,7 @@ import {
   User, Stethoscope, WifiOff,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { doctorApi, departmentApi, appointmentApi, type BackendDoctor } from "@/lib/api";
+import { doctorApi, appointmentApi, type BackendDoctor } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 
 export const Route = createFileRoute("/book")({
@@ -48,6 +48,22 @@ const NIGERIAN_CITIES = [
   "Asaba",
   "Yola",
   "Minna",
+];
+
+// Doctor specialties for filtering and dropdowns
+export const SPECIALTIES = [
+  "General Medicine",
+  "Cardiology",
+  "Dermatology",
+  "Pediatrics",
+  "Neurology",
+  "Orthopedics",
+  "Psychiatry",
+  "Gynecology",
+  "Ophthalmology",
+  "Oncology",
+  "Radiology",
+  "Urology",
 ];
 
 // Fallback avatar using initials
@@ -90,7 +106,7 @@ function BookPage() {
   }, [isAuthenticated, isLoading, navigate]);
 
   const [step, setStep] = useState(0);
-  const [deptFilter, setDeptFilter] = useState("All departments");
+  const [specialtyFilter, setSpecialtyFilter] = useState("All specialties");
   const [cityFilter, setCityFilter] = useState("All locations");
   const [query, setQuery] = useState("");
   const [doctor, setDoctor] = useState<BackendDoctor | null>(null);
@@ -104,41 +120,25 @@ function BookPage() {
   const [reason, setReason] = useState("");
 
   // ── Data fetching ───────────────────────────────────────────────────────────
-  const { data: deptData, isLoading: deptLoading } = useQuery({
-    queryKey: ["departments"],
-    queryFn: () => departmentApi.getAll(),
-    staleTime: 1000 * 60 * 5,
-  });
-
   const { data: doctorData, isLoading: doctorLoading, isError: doctorError } = useQuery({
     queryKey: ["doctors"],
     queryFn: () => doctorApi.getAll(),
     staleTime: 1000 * 60 * 2,
   });
 
-  // Department names derived from API (fall back to empty)
-  const departmentNames = useMemo(
-    () => (deptData ?? []).map((d) => d.deptName),
-    [deptData]
-  );
-
-  // Find department ID from selected name for filtering
-  const selectedDeptId = useMemo(() => {
-    if (deptFilter === "All departments") return null;
-    return deptData?.find((d) => d.deptName === deptFilter)?.departmentId ?? null;
-  }, [deptFilter, deptData]);
-
-  // All approved doctors from API
+  // All doctors from API (approval is NOT required anymore!)
   const allDoctors = useMemo(
-    () => (doctorData?.doctor ?? []).filter((d) => d.status === true && d.isAvailable),
+    () => (doctorData?.doctor ?? []).filter((d) => d.isAvailable),
     [doctorData]
   );
 
-  // Client-side filter by department + city + search query
+  // Client-side filter by specialty + city + search query
   const filtered = useMemo(
     () =>
       allDoctors.filter((d) => {
-        const matchDept = selectedDeptId === null || d.departmentId === selectedDeptId;
+        const matchSpecialty =
+          specialtyFilter === "All specialties" ||
+          d.qualifications.toLowerCase() === specialtyFilter.toLowerCase();
         const matchCity =
           cityFilter === "All locations" ||
           d.city.toLowerCase() === cityFilter.toLowerCase();
@@ -147,9 +147,9 @@ function BookPage() {
           d.doctorName.toLowerCase().includes(query.toLowerCase()) ||
           d.qualifications.toLowerCase().includes(query.toLowerCase()) ||
           d.city.toLowerCase().includes(query.toLowerCase());
-        return matchDept && matchCity && matchQuery;
+        return matchSpecialty && matchCity && matchQuery;
       }),
-    [allDoctors, selectedDeptId, cityFilter, query]
+    [allDoctors, specialtyFilter, cityFilter, query]
   );
 
   // Available time slots for the selected doctor on the selected date
@@ -223,11 +223,11 @@ function BookPage() {
                 className="w-full h-11 pl-9 pr-3 rounded-xl border border-input bg-card text-sm focus:outline-none focus:ring-2 focus:ring-ring/40"
               />
             </div>
-            {/* Department filter */}
+            {/* Specialty filter */}
             <SelectInput
-              value={deptFilter}
-              onChange={(v) => { setDeptFilter(v); setDoctor(null); }}
-              options={["All departments", ...(deptLoading ? [] : departmentNames)]}
+              value={specialtyFilter}
+              onChange={(v) => { setSpecialtyFilter(v); setDoctor(null); }}
+              options={["All specialties", ...SPECIALTIES]}
             />
             {/* Location / City filter */}
             <SelectInput
@@ -269,10 +269,10 @@ function BookPage() {
                   <>
                     <p className="font-semibold text-foreground">No doctors match your filters</p>
                     <p className="text-sm text-muted-foreground mt-1">
-                      Try clearing the department or location filter.
+                      Try clearing the specialty or location filter.
                     </p>
                     <button
-                      onClick={() => { setDeptFilter("All departments"); setCityFilter("All locations"); setQuery(""); }}
+                      onClick={() => { setSpecialtyFilter("All specialties"); setCityFilter("All locations"); setQuery(""); }}
                       className="mt-3 h-9 px-4 rounded-xl bg-primary text-primary-foreground text-sm font-medium"
                     >
                       Clear all filters
@@ -287,7 +287,7 @@ function BookPage() {
                 <DoctorCard
                   key={d._id}
                   d={d}
-                  deptName={deptData?.find((dept) => dept.departmentId === d.departmentId)?.deptName}
+                  deptName={d.qualifications}
                   selected={doctor?._id === d._id}
                   onSelect={() => { setDoctor(d); setSlot(""); }}
                 />
@@ -360,7 +360,7 @@ function BookPage() {
               )}
             </Card>
           </div>
-          <SummaryCard doctor={doctor} branch={branch} date={date} slot={slot} reason={reason} />
+          <SummaryCard doctor={doctor} branch={doctor.city} date={date} slot={slot} reason={reason} />
         </div>
       )}
 
@@ -435,7 +435,7 @@ function BookPage() {
               Your information stays inside the hospital network and is shared only with your care team.
             </div>
           </Card>
-          <SummaryCard doctor={doctor} branch={branch} date={date} slot={slot} reason={reason} />
+          <SummaryCard doctor={doctor} branch={doctor.city} date={date} slot={slot} reason={reason} />
         </div>
       )}
 
@@ -455,7 +455,7 @@ function BookPage() {
             <Info label="Doctor" value={doctor.doctorName} />
             <Info label="Specialty" value={doctor.qualifications} />
             <Info label="When" value={`${formatDate(date)} · ${slot}`} />
-            <Info label="Where" value={branch} />
+            <Info label="Where" value={ doctor.city} />
           </div>
           <Link
             to="/dashboard"

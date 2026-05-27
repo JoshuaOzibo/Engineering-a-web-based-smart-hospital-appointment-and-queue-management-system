@@ -6,10 +6,10 @@ import { toast } from "sonner";
 import {
   Calendar, Clock, FileText, Bell, Activity,
   X, RotateCcw, ChevronRight, HeartPulse, Loader2,
-  AlertCircle, CheckCircle2, LogIn, WifiOff, Users,
+  AlertCircle, CheckCircle2, LogIn, WifiOff, Users, Star,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { appointmentApi, queueApi, type BackendAppointment } from "@/lib/api";
+import { appointmentApi, queueApi, doctorApi, type BackendAppointment } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import { useQueueSSE } from "@/lib/useQueueSSE";
 
@@ -275,6 +275,11 @@ function Dashboard() {
                     </div>
                     <div className="text-sm font-medium mt-0.5">Dr. {appt.docFirstName}</div>
                     <div className="text-xs text-muted-foreground">{appt.problemDescription}</div>
+                    <StarRating
+                      appointmentId={appt._id}
+                      doctorId={appt.doctorId}
+                      docName={appt.docFirstName}
+                    />
                   </li>
                 ))}
               </ol>
@@ -482,5 +487,84 @@ function QueueCard() {
         )}
       </div>
     </section>
+  );
+}
+
+// ── Star Rating Component ──────────────────────────────────────────────────
+function StarRating({
+  appointmentId,
+  doctorId,
+  docName,
+}: {
+  appointmentId: string;
+  doctorId: string;
+  docName: string;
+}) {
+  const qc = useQueryClient();
+  const storageKey = `mq_rated_${appointmentId}`;
+  
+  // Local state initialized from localStorage
+  const [ratedVal, setRatedVal] = useState<number>(() => {
+    if (typeof window !== "undefined") {
+      return Number(localStorage.getItem(storageKey) || "0");
+    }
+    return 0;
+  });
+  
+  const [hoverVal, setHoverVal] = useState<number | null>(null);
+
+  const mutation = useMutation({
+    mutationFn: (rating: number) => doctorApi.rate(doctorId, rating),
+    onSuccess: (data, variables) => {
+      toast.success(`Thank you! You rated Dr. ${docName} ${variables} stars.`);
+      localStorage.setItem(storageKey, String(variables));
+      setRatedVal(variables);
+      qc.invalidateQueries({ queryKey: ["doctors"] });
+      qc.invalidateQueries({ queryKey: ["my-appointments"] });
+    },
+    onError: (err: Error) => {
+      toast.error(err.message || "Failed to submit rating.");
+    },
+  });
+
+  const displayStars = hoverVal !== null ? hoverVal : ratedVal;
+
+  return (
+    <div className="mt-2 bg-muted/30 p-2 rounded-xl border border-border/50">
+      <div className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold mb-1">
+        {ratedVal > 0 ? "Your rating" : "Rate this visit"}
+      </div>
+      <div className="flex items-center gap-1">
+        {Array.from({ length: 5 }, (_, i) => {
+          const starVal = i + 1;
+          return (
+            <button
+              key={starVal}
+              type="button"
+              disabled={ratedVal > 0 || mutation.isPending}
+              onMouseEnter={() => setHoverVal(starVal)}
+              onMouseLeave={() => setHoverVal(null)}
+              onClick={() => mutation.mutate(starVal)}
+              className={cn(
+                "p-0.5 rounded transition-all",
+                ratedVal > 0 ? "cursor-default" : "hover:scale-125 hover:bg-muted cursor-pointer"
+              )}
+            >
+              <Star
+                className={cn(
+                  "size-4.5 transition-colors",
+                  starVal <= displayStars
+                    ? "fill-amber-400 text-amber-400"
+                    : "text-muted-foreground/30"
+                )}
+              />
+            </button>
+          );
+        })}
+        {mutation.isPending && (
+          <span className="text-[10px] text-muted-foreground animate-pulse ml-1.5">Saving...</span>
+        )}
+      </div>
+    </div>
   );
 }

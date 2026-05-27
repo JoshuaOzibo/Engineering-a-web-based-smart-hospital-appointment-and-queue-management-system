@@ -217,6 +217,29 @@ doctorRouter.patch("/updateProfile/:doctorId", async (req, res) => {
   }
 });
 
+// PATCH submit doctor rating
+doctorRouter.patch("/rate/:doctorId", async (req, res) => {
+  const { doctorId } = req.params;
+  const { rating } = req.body;
+  if (!rating || rating < 1 || rating > 5) {
+    return res.status(400).send({ msg: "Rating must be a number between 1 and 5" });
+  }
+  try {
+    const doctor = await DoctorModel.findById(doctorId);
+    if (!doctor) return res.status(404).send({ msg: "Doctor not found" });
+
+    const oldRating = doctor.rating || 0;
+    const newRating = oldRating === 0 ? rating : parseFloat(((oldRating * 4 + rating) / 5).toFixed(1));
+
+    doctor.rating = newRating;
+    await doctor.save();
+    res.send({ msg: "Doctor rated successfully", rating: doctor.rating });
+  } catch (error) {
+    console.error("Rate doctor error:", error);
+    res.status(500).send({ msg: "Error rating doctor", error: error.message });
+  }
+});
+
 module.exports = {
   doctorRouter,
 };

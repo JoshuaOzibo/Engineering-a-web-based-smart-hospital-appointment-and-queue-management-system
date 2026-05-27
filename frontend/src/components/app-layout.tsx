@@ -1,5 +1,5 @@
 import { Link, useRouterState } from "@tanstack/react-router";
-import { Calendar, LayoutDashboard, Users, Activity, Bell, Stethoscope, ShieldCheck, Hospital, Search, LogOut, LogIn } from "lucide-react";
+import { Calendar, LayoutDashboard, Users, Activity, Bell, Stethoscope, ShieldCheck, Hospital, Search, LogOut, LogIn, User } from "lucide-react";
 import { ReactNode } from "react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/lib/auth";
@@ -12,6 +12,7 @@ const nav = [
   { to: "/queue", label: "Live Queue", icon: Activity, group: "Patient" },
   { to: "/notifications", label: "Notifications", icon: Bell, group: "Patient" },
   { to: "/doctor", label: "Doctor Console", icon: Stethoscope, group: "Staff" },
+  { to: "/profile", label: "My Profile", icon: User, group: "Staff" },
 ] as const;
 
 export function AppLayout({ children, title, subtitle, actions }: { children: ReactNode; title: string; subtitle?: string; actions?: ReactNode }) {
@@ -38,8 +39,10 @@ export function AppLayout({ children, title, subtitle, actions }: { children: Re
     enabled: isAuthenticated && !!user?.email,
   });
 
-  const isDoctor = isAuthenticated && !!user?.email &&
-    (doctorData?.doctor ?? []).some(d => d.email.toLowerCase() === user.email.toLowerCase() && d.status);
+  const matchedDoctor = (doctorData?.doctor ?? []).find(d => d.email.toLowerCase() === user?.email?.toLowerCase());
+  const isDoctor = !!matchedDoctor;
+  const isApprovedDoctor = matchedDoctor?.status === true;
+  const roleLabel = isDoctor ? (isApprovedDoctor ? "Doctor" : "Doctor (Pending Approval)") : "Patient";
 
   // Filter groups & navigation links based on role
   const showStaffGroup = isAdmin || isDoctor;
@@ -47,7 +50,7 @@ export function AppLayout({ children, title, subtitle, actions }: { children: Re
 
   const filteredNav = nav.filter((item) => {
     if (item.group === "Staff") {
-      if (item.to === "/doctor") {
+      if (item.to === "/doctor" || item.to === "/profile") {
         return isAdmin || isDoctor;
       }
       return false;
@@ -130,7 +133,7 @@ export function AppLayout({ children, title, subtitle, actions }: { children: Re
               </div>
               <div className="leading-tight flex-1 min-w-0">
                 <div className="text-sm font-medium text-foreground truncate">{user.name} {user.last_name}</div>
-                <div className="text-xs text-muted-foreground truncate">{isDoctor ? "Doctor" : "Patient"} · {user.email}</div>
+                <div className="text-xs text-muted-foreground truncate">{roleLabel} · {user.email}</div>
               </div>
               <button
                 onClick={logout}

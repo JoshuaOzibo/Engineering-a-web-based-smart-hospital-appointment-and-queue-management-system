@@ -130,6 +130,8 @@ export const doctorApi = {
     api.patch<{ msg: string }>(`/doctor/addSlots/${doctorId}`, { date, slots }),
   updateProfile: (doctorId: string, body: UpdateDoctorProfileBody) =>
     api.patch<{ msg: string; doctor: BackendDoctor }>(`/doctor/updateProfile/${doctorId}`, body),
+  rate: (doctorId: string, rating: number) =>
+    api.patch<{ msg: string; rating: number }>(`/doctor/rate/${doctorId}`, { rating }),
   // Admin actions
   getPending: () => api.get<{ msg: string; docPending: BackendDoctor[] }>("/doctor/docPending"),
   updateStatus: (doctorId: string, status: boolean) =>

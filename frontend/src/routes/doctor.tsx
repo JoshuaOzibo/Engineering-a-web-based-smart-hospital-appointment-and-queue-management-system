@@ -52,15 +52,6 @@ function DoctorPage() {
   const [slotDate, setSlotDate] = useState(todayPlus(1));
   const [selectedSlots, setSelectedSlots] = useState<string[]>([]);
 
-  // ── Profile edit form state ─────────────────────────────────────────────────
-  const [profileCity, setProfileCity] = useState("");
-  const [profileDeptId, setProfileDeptId] = useState("");
-  const [profileName, setProfileName] = useState("");
-  const [profileQuals, setProfileQuals] = useState("");
-  const [profileExp, setProfileExp] = useState("");
-  const [profilePhone, setProfilePhone] = useState("");
-  const [profileAvail, setProfileAvail] = useState(true);
-
   // Retrieve admin session
   const adminSession = typeof window !== "undefined"
     ? (() => {
@@ -73,19 +64,19 @@ function DoctorPage() {
     : null;
   const isAdmin = !!adminSession;
 
-  // ── Fetch all approved doctors ──────────────────────────────────────────────
+  // ── Fetch all doctors (both approved and pending) ──────────────────────────
   const { data: doctorData, isLoading: drLoading } = useQuery({
     queryKey: ["doctors"],
     queryFn: () => doctorApi.getAll(),
     staleTime: 1000 * 60 * 2,
   });
   const doctors = useMemo(
-    () => (doctorData?.doctor ?? []).filter((d) => d.status),
+    () => doctorData?.doctor ?? [],
     [doctorData],
   );
   const doctor = doctors.find((d) => d._id === selectedDoctorId) ?? null;
 
-  // Auto-detect logged-in doctor profile
+  // Auto-detect logged-in doctor profile (even if pending approval)
   const loggedInDoctor = useMemo(() => {
     if (!isAuthenticated || !user?.email) return null;
     return doctors.find((d) => d.email.toLowerCase() === user.email.toLowerCase()) ?? null;
@@ -94,26 +85,13 @@ function DoctorPage() {
   useEffect(() => {
     if (!drLoading) {
       if (!isAdmin && !loggedInDoctor) {
-        toast.error("Access Denied: You are not registered as an approved doctor.");
+        toast.error("Access Denied: You are not registered as a doctor in our system.");
         navigate({ to: "/dashboard", replace: true });
       } else if (loggedInDoctor && selectedDoctorId !== loggedInDoctor._id) {
         setSelectedDoctorId(loggedInDoctor._id);
       }
     }
   }, [drLoading, isAdmin, loggedInDoctor, navigate, selectedDoctorId]);
-
-  // Pre-fill profile form whenever the selected doctor changes
-  useEffect(() => {
-    if (doctor) {
-      setProfileName(doctor.doctorName ?? "");
-      setProfileQuals(doctor.qualifications ?? "");
-      setProfileExp(doctor.experience ?? "");
-      setProfilePhone(doctor.phoneNo ?? "");
-      setProfileCity(doctor.city ?? "");
-      setProfileDeptId(String(doctor.departmentId ?? ""));
-      setProfileAvail(doctor.isAvailable ?? true);
-    }
-  }, [doctor]);
 
   // ── Fetch only appointments for the selected doctor ─────────────────────────
   const { data: apptData, isLoading: apptLoading } = useQuery({
@@ -149,27 +127,6 @@ function DoctorPage() {
     },
     onSuccess: () => {
       toast.success("Slot removed.");
-      qc.invalidateQueries({ queryKey: ["doctors"] });
-    },
-    onError: (e: Error) => toast.error(e.message),
-  });
-
-  // ── Update profile mutation ─────────────────────────────────────────────────
-  const updateProfileMutation = useMutation({
-    mutationFn: () => {
-      const body: UpdateDoctorProfileBody = {
-        doctorName: profileName.trim() || undefined,
-        qualifications: profileQuals.trim() || undefined,
-        experience: profileExp.trim() || undefined,
-        phoneNo: profilePhone.trim() || undefined,
-        city: profileCity || undefined,
-        departmentId: profileDeptId ? Number(profileDeptId) : undefined,
-        isAvailable: profileAvail,
-      };
-      return doctorApi.updateProfile(selectedDoctorId, body);
-    },
-    onSuccess: () => {
-      toast.success("Profile updated successfully!");
       qc.invalidateQueries({ queryKey: ["doctors"] });
     },
     onError: (e: Error) => toast.error(e.message),
@@ -312,100 +269,8 @@ function DoctorPage() {
             </div>
           </div>
 
-          {/* ── Right: profile, queue panel, chart, slot management ───────────────── */}
+          {/* ── Right: queue panel, chart, slot management ───────────────── */}
           <div className="space-y-6">
-
-            {/* ── My Profile ─────────────────────────────────────────────── */}
-            <div className="rounded-2xl border border-border bg-card p-5 shadow-soft">
-              <div className="text-sm font-semibold mb-4">My profile</div>
-
-              <div className="space-y-3">
-                <label className="block">
-                  <span className="text-xs text-muted-foreground">Full name</span>
-                  <input
-                    value={profileName}
-                    onChange={(e) => setProfileName(e.target.value)}
-                    placeholder="Dr. John Doe"
-                    className="mt-1 w-full h-10 px-3 rounded-xl border border-input bg-surface text-sm focus:outline-none focus:ring-2 focus:ring-ring/40"
-                  />
-                </label>
-
-                <label className="block">
-                  <span className="text-xs text-muted-foreground">Qualifications / Specialty</span>
-                  <input
-                    value={profileQuals}
-                    onChange={(e) => setProfileQuals(e.target.value)}
-                    placeholder="e.g. MBBS, Cardiology"
-                    className="mt-1 w-full h-10 px-3 rounded-xl border border-input bg-surface text-sm focus:outline-none focus:ring-2 focus:ring-ring/40"
-                  />
-                </label>
-
-                <label className="block">
-                  <span className="text-xs text-muted-foreground">Years of experience</span>
-                  <input
-                    value={profileExp}
-                    onChange={(e) => setProfileExp(e.target.value)}
-                    placeholder="e.g. 8"
-                    className="mt-1 w-full h-10 px-3 rounded-xl border border-input bg-surface text-sm focus:outline-none focus:ring-2 focus:ring-ring/40"
-                  />
-                </label>
-
-                <label className="block">
-                  <span className="text-xs text-muted-foreground">Phone number</span>
-                  <input
-                    value={profilePhone}
-                    onChange={(e) => setProfilePhone(e.target.value)}
-                    placeholder="+234 800 000 0000"
-                    className="mt-1 w-full h-10 px-3 rounded-xl border border-input bg-surface text-sm focus:outline-none focus:ring-2 focus:ring-ring/40"
-                  />
-                </label>
-
-                <label className="block">
-                  <span className="text-xs text-muted-foreground">City / Location</span>
-                  <select
-                    value={profileCity}
-                    onChange={(e) => setProfileCity(e.target.value)}
-                    className="mt-1 w-full h-10 px-3 rounded-xl border border-input bg-surface text-sm focus:outline-none focus:ring-2 focus:ring-ring/40"
-                  >
-                    <option value="">— Select city —</option>
-                    {NIGERIAN_CITIES.map((c) => (
-                      <option key={c} value={c}>{c}</option>
-                    ))}
-                  </select>
-                </label>
-
-                <label className="block">
-                  <span className="text-xs text-muted-foreground">Department ID</span>
-                  <input
-                    type="number"
-                    value={profileDeptId}
-                    onChange={(e) => setProfileDeptId(e.target.value)}
-                    placeholder="e.g. 1"
-                    className="mt-1 w-full h-10 px-3 rounded-xl border border-input bg-surface text-sm focus:outline-none focus:ring-2 focus:ring-ring/40"
-                  />
-                </label>
-
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={profileAvail}
-                    onChange={(e) => setProfileAvail(e.target.checked)}
-                    className="rounded"
-                  />
-                  <span className="text-sm text-foreground">Mark me as available for bookings</span>
-                </label>
-              </div>
-
-              <button
-                onClick={() => updateProfileMutation.mutate()}
-                disabled={updateProfileMutation.isPending}
-                className="mt-4 w-full h-10 rounded-xl bg-primary text-primary-foreground text-sm font-medium inline-flex items-center justify-center gap-2 disabled:opacity-50"
-              >
-                {updateProfileMutation.isPending
-                  ? <><Loader2 className="size-4 animate-spin" /> Saving…</>
-                  : "Save profile"}
-              </button>
-            </div>
 
             {/* Live queue management panel */}
             {deptId && (
