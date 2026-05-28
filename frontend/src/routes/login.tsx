@@ -162,8 +162,8 @@ function LoginPage() {
     setLoading(true);
     try {
       if (role === "doctor") {
-        if (!docQualifications || !docExperience.trim() || !docCity || !docDeptId) {
-          throw new Error("All professional credentials (Specialty, Experience, City, Department) are required for doctors.");
+        if (!docQualifications || !docExperience.trim() || !docCity) {
+          throw new Error("All professional credentials (Specialty, Experience, City) are required for doctors.");
         }
       }
 
@@ -188,7 +188,7 @@ function LoginPage() {
           experience: docExperience,
           phoneNo: suMobile,
           city: docCity,
-          departmentId: Number(docDeptId),
+          departmentId: 1, // Defaulting departmentId to 1 since it's required by DoctorModel but not asked on signup
           isAvailable: true,
           status: true, // auto-approve
         });
@@ -498,44 +498,24 @@ function LoginPage() {
                           required
                         />
                       </div>
-                      <div className="grid grid-cols-2 gap-3">
-                        <label className="block">
-                          <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5 mb-1.5">
-                            <MapPin className="size-3.5 text-primary" /> City
-                          </span>
-                          <select
-                            value={docCity}
-                            onChange={(e) => setDocCity(e.target.value)}
-                            required
-                            className="w-full h-11 px-3 rounded-xl border border-input bg-surface text-sm focus:outline-none focus:ring-2 focus:ring-ring/40 font-medium"
-                          >
-                            <option value="">— Select city —</option>
-                            {NIGERIAN_CITIES.map((c) => (
-                              <option key={c} value={c}>
-                                {c}
-                              </option>
-                            ))}
-                          </select>
-                        </label>
-                        <label className="block">
-                          <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5 mb-1.5">
-                            <Hospital className="size-3.5 text-primary" /> Department
-                          </span>
-                          <select
-                            value={docDeptId}
-                            onChange={(e) => setDocDeptId(e.target.value)}
-                            required
-                            className="w-full h-11 px-3 rounded-xl border border-input bg-surface text-sm focus:outline-none focus:ring-2 focus:ring-ring/40 font-medium"
-                          >
-                            <option value="">— Select dept —</option>
-                            {departments?.map((d) => (
-                              <option key={d._id} value={d.departmentId}>
-                                {d.deptName}
-                              </option>
-                            ))}
-                          </select>
-                        </label>
-                      </div>
+                      <label className="block">
+                        <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5 mb-1.5">
+                          <MapPin className="size-3.5 text-primary" /> City
+                        </span>
+                        <select
+                          value={docCity}
+                          onChange={(e) => setDocCity(e.target.value)}
+                          required
+                          className="w-full h-11 px-3 rounded-xl border border-input bg-surface text-sm focus:outline-none focus:ring-2 focus:ring-ring/40 font-medium"
+                        >
+                          <option value="">— Select city —</option>
+                          {NIGERIAN_CITIES.map((c) => (
+                            <option key={c} value={c}>
+                              {c}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
                     </div>
                   )}
 

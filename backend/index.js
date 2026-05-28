@@ -6,18 +6,18 @@ const app = express();
 app.use(express.json());
 app.use(cors());
 
-const { userRouter }       = require("./routers/user.router");
-const { connection }       = require("./config/db");
-const { doctorRouter }     = require("./routers/doctor.router");
+const { userRouter } = require("./routers/user.router");
+const { connection } = require("./config/db");
+const { doctorRouter } = require("./routers/doctor.router");
 const { departmentRouter } = require("./routers/department.router");
-const { appointmentRouter }= require("./routers/appointment.router");
-const { queueRouter }      = require("./routers/queue.router");
+const { appointmentRouter } = require("./routers/appointment.router");
+const { queueRouter } = require("./routers/queue.router");
 
-app.use("/user",        userRouter);
-app.use("/department",  departmentRouter);
-app.use("/doctor",      doctorRouter);
+app.use("/user", userRouter);
+app.use("/department", departmentRouter);
+app.use("/doctor", doctorRouter);
 app.use("/appointment", appointmentRouter);
-app.use("/queue",       queueRouter);
+app.use("/queue", queueRouter);
 
 app.listen(process.env.port, async () => {
   try {

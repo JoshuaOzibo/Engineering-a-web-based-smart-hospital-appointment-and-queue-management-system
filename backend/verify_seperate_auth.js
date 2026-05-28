@@ -54,7 +54,7 @@ async function run() {
   // ----------------------------------------------------
   // TEST 2: Doctor Sign Up (Account + Profile)
   // ----------------------------------------------------
-  console.log("[TEST 2] Doctor Account Sign Up...");
+  console.log("[TEST-2-1] Doctor Account Sign Up...");
   const signupDocRes = await fetch(`${BASE_URL}/user/signup`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -68,7 +68,7 @@ async function run() {
   });
   console.log("Doctor Signup status:", signupDocRes.status);
 
-  console.log("[TEST 2] Doctor Sign In to get token for profile creation...");
+  console.log("[TEST-2-2] Doctor Sign In to get token for profile creation...");
   const signinDocTokenRes = await fetch(`${BASE_URL}/user/signin`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -83,7 +83,7 @@ async function run() {
     throw new Error("Doctor token retrieval failed");
   }
 
-  console.log("[TEST 2] Doctor Profile Creation...");
+  console.log("[TEST-2-3] Doctor Profile Creation (Defaulting departmentId to 1)...");
   const createProfileRes = await fetch(`${BASE_URL}/doctor/addDoctor`, {
     method: "POST",
     headers: {
@@ -97,7 +97,7 @@ async function run() {
       experience: "10",
       phoneNo: "+2348100000002",
       city: "Lagos",
-      departmentId: 1,
+      departmentId: 1, // Default Cardiology
       isAvailable: true,
       status: true
     })

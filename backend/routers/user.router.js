@@ -37,24 +37,22 @@ userRouter.post("/signup", async (req, res) => {
   }
 
   try {
-    bcrypt.hash(password, 5, async (err, hash) => {
-      if (err) {
-        console.error(`[SIGNUP] ❌ Bcrypt error for ${email}:`, err.message);
-        return res.status(500).send({ msg: "Error hashing password" });
-      }
-      const user = new UserModel({
-        first_name,
-        last_name,
-        email,
-        mobile,
-        password: hash,
-      });
-      await user.save();
-      console.log(`[SIGNUP] ✅ Success — ${first_name} ${last_name} <${email}> (id: ${user._id})`);
-      res.status(201).send({ msg: "Signup Successful" });
+    const hash = await bcrypt.hash(password, 5);
+    const user = new UserModel({
+      first_name,
+      last_name,
+      email,
+      mobile,
+      password: hash,
     });
+    await user.save();
+    console.log(`[SIGNUP] ✅ Success — ${first_name} ${last_name} <${email}> (id: ${user._id})`);
+    res.status(201).send({ msg: "Signup Successful" });
   } catch (error) {
     console.error(`[SIGNUP] ❌ Error for ${email}:`, error.message);
+    if (error.code === 11000) {
+      return res.status(409).send({ msg: "Mobile number is already registered under another account" });
+    }
     res.status(500).send({ msg: "Error during signup" });
   }
 });
