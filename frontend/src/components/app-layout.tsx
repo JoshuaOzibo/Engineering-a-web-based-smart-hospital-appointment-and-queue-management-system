@@ -11,8 +11,8 @@ const nav = [
   { to: "/book", label: "Book Appointment", icon: Calendar, group: "Patient" },
   { to: "/queue", label: "Live Queue", icon: Activity, group: "Patient" },
   { to: "/notifications", label: "Notifications", icon: Bell, group: "Patient" },
-  { to: "/doctor", label: "Doctor Console", icon: Stethoscope, group: "Staff" },
-  { to: "/profile", label: "My Profile", icon: User, group: "Staff" },
+  { to: "/profile", label: "My Profile", icon: User, group: "Patient" },
+  { to: "/doctor", label: "Doctor Console", icon: Stethoscope, group: "Doctor" },
 ] as const;
 
 export function AppLayout({ children, title, subtitle, actions }: { children: ReactNode; title: string; subtitle?: string; actions?: ReactNode }) {
@@ -33,18 +33,11 @@ export function AppLayout({ children, title, subtitle, actions }: { children: Re
   const roleLabel = isDoctor ? (isApprovedDoctor ? "Doctor" : "Doctor (Pending Approval)") : "Patient";
 
   // Filter groups & navigation links based on role
-  const showStaffGroup = isDoctor || isAuthenticated;
-  const groups = showStaffGroup ? (["Patient", "Staff"] as const) : (["Patient"] as const);
+  const groups = isDoctor ? (["Patient", "Doctor"] as const) : (["Patient"] as const);
 
   const filteredNav = nav.filter((item) => {
-    if (item.group === "Staff") {
-      if (item.to === "/doctor") {
-        return isDoctor;
-      }
-      if (item.to === "/profile") {
-        return isAuthenticated;
-      }
-      return false;
+    if (item.group === "Doctor") {
+      return isDoctor;
     }
     return true;
   });

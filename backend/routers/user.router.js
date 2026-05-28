@@ -104,12 +104,17 @@ userRouter.post("/signin", async (req, res) => {
 
 // Update standard user/patient details
 userRouter.patch("/update", authenticate, async (req, res) => {
-  const { first_name, last_name, mobile, email } = req.body;
+  const { first_name, last_name, mobile, email, password } = req.body;
   const { userID } = req.body; // Injected by authenticate middleware
   try {
+    const updateData = { first_name, last_name, mobile, email };
+    if (password && password.trim() !== "") {
+      updateData.password = await bcrypt.hash(password, 5);
+    }
+
     const updatedUser = await UserModel.findByIdAndUpdate(
       userID,
-      { first_name, last_name, mobile, email },
+      updateData,
       { new: true }
     );
     if (!updatedUser) {

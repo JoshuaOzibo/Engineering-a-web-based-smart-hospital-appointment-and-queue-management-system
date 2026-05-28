@@ -92,7 +92,7 @@ export const authApi = {
       "/user/signin",
       body,
     ),
-  updateUser: (body: { first_name: string; last_name: string; email: string; mobile: string }) =>
+  updateUser: (body: { first_name: string; last_name: string; email: string; mobile: string; password?: string }) =>
     api.patch<{ msg: string; user: { name: string; last_name: string; email: string; mobile: string } }>("/user/update", body),
 };
 
