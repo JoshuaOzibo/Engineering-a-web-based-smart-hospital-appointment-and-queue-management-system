@@ -3,7 +3,7 @@ import { AppLayout } from "@/components/app-layout";
 import { useQuery } from "@tanstack/react-query";
 import { Bell, Calendar, Clock, MessageSquare, Phone, AlertCircle, Loader2, CheckCircle2, LogIn } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { appointmentApi } from "@/lib/api";
+import { appointmentApi, doctorApi } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 
 export const Route = createFileRoute("/notifications")({
@@ -23,37 +23,71 @@ const toneMap: Record<string, string> = {
 function NotificationsPage() {
   const { user, isAuthenticated } = useAuth();
 
+  // Retrieve doctors to check if user's email belongs to an approved doctor
+  const { data: doctorData, isLoading: doctorLoading } = useQuery({
+    queryKey: ["doctors"],
+    queryFn: () => doctorApi.getAll(),
+    staleTime: 1000 * 60 * 5,
+    enabled: isAuthenticated && !!user?.email,
+  });
+
+  const matchedDoctor = (doctorData?.doctor ?? []).find(
+    (d) => d.email.toLowerCase() === user?.email?.toLowerCase()
+  );
+  const isDoctor = !!matchedDoctor;
+
   // Fetch real appointments to build live reminders
-  const { data: apptData, isLoading } = useQuery({
-    queryKey: ["my-appointments"],
-    queryFn: () => appointmentApi.getMyAppointments(),
-    enabled: isAuthenticated,
+  const { data: apptData, isLoading: apptLoading } = useQuery({
+    queryKey: isDoctor ? ["doctor-appointments", matchedDoctor?._id] : ["my-appointments"],
+    queryFn: () => isDoctor ? appointmentApi.getDoctorAppointments(matchedDoctor!._id) : appointmentApi.getMyAppointments(),
+    enabled: isAuthenticated && (!isDoctor || !!matchedDoctor),
     staleTime: 1000 * 30,
   });
+
+  const isLoading = doctorLoading || apptLoading;
 
   const appointments = apptData?.appointments ?? [];
   const upcoming = appointments.filter((a) => !a.status);
   const approved = appointments.filter((a) => a.status);
 
   // Build dynamic notification items from real appointments
-  const liveItems = [
-    // Upcoming appointment reminders
-    ...upcoming.map((a) => ({
-      icon: Calendar,
-      tone: "primary",
-      title: `Upcoming appointment with Dr. ${a.docFirstName}`,
-      desc: `${a.appointmentDate ? formatDate(a.appointmentDate) : "Date TBD"}${a.problemDescription ? ` · ${a.problemDescription}` : ""}`,
-      when: "Upcoming",
-    })),
-    // Completed visits
-    ...approved.map((a) => ({
-      icon: CheckCircle2,
-      tone: "success",
-      title: `Completed visit — Dr. ${a.docFirstName}`,
-      desc: `${a.appointmentDate ? formatDate(a.appointmentDate) : "Date TBD"} · Consultation completed successfully.`,
-      when: "Completed",
-    })),
-  ];
+  const liveItems = isDoctor
+    ? [
+        // Doctor's upcoming appointments
+        ...upcoming.map((a) => ({
+          icon: Calendar,
+          tone: "primary",
+          title: `New booking: Patient ${a.patientFirstName}`,
+          desc: `Scheduled on ${a.appointmentDate ? formatDate(a.appointmentDate) : "Date TBD"} for: "${a.problemDescription || "consultation"}".`,
+          when: "Upcoming",
+        })),
+        // Doctor's completed visits
+        ...approved.map((a) => ({
+          icon: CheckCircle2,
+          tone: "success",
+          title: `Completed visit: Patient ${a.patientFirstName}`,
+          desc: `Completed on ${a.appointmentDate ? formatDate(a.appointmentDate) : "Date TBD"}.`,
+          when: "Completed",
+        })),
+      ]
+    : [
+        // Patient's upcoming appointments
+        ...upcoming.map((a) => ({
+          icon: Calendar,
+          tone: "primary",
+          title: `Upcoming appointment with Dr. ${a.docFirstName}`,
+          desc: `${a.appointmentDate ? formatDate(a.appointmentDate) : "Date TBD"}${a.problemDescription ? ` · ${a.problemDescription}` : ""}`,
+          when: "Upcoming",
+        })),
+        // Patient's completed visits
+        ...approved.map((a) => ({
+          icon: CheckCircle2,
+          tone: "success",
+          title: `Completed visit — Dr. ${a.docFirstName}`,
+          desc: `${a.appointmentDate ? formatDate(a.appointmentDate) : "Date TBD"} · Consultation completed successfully.`,
+          when: "Completed",
+        })),
+      ];
 
   const allItems = liveItems;
 

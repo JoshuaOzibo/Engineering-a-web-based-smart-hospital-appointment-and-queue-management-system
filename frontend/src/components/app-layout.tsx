@@ -13,6 +13,7 @@ const nav = [
   { to: "/notifications", label: "Notifications", icon: Bell, group: "Patient" },
   { to: "/profile", label: "My Profile", icon: User, group: "Patient" },
   { to: "/doctor", label: "Doctor Console", icon: Stethoscope, group: "Doctor" },
+  { to: "/doctor-appointments", label: "My Appointments", icon: Calendar, group: "Doctor" },
 ] as const;
 
 export function AppLayout({ children, title, subtitle, actions }: { children: ReactNode; title: string; subtitle?: string; actions?: ReactNode }) {

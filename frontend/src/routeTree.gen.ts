@@ -15,6 +15,7 @@ import { Route as PatientRouteImport } from './routes/patient'
 import { Route as NotificationsRouteImport } from './routes/notifications'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as DoctorsRouteImport } from './routes/doctors'
+import { Route as DoctorAppointmentsRouteImport } from './routes/doctor-appointments'
 import { Route as DoctorRouteImport } from './routes/doctor'
 import { Route as BookRouteImport } from './routes/book'
 import { Route as IndexRouteImport } from './routes/index'
@@ -49,6 +50,11 @@ const DoctorsRoute = DoctorsRouteImport.update({
   path: '/doctors',
   getParentRoute: () => rootRouteImport,
 } as any)
+const DoctorAppointmentsRoute = DoctorAppointmentsRouteImport.update({
+  id: '/doctor-appointments',
+  path: '/doctor-appointments',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const DoctorRoute = DoctorRouteImport.update({
   id: '/doctor',
   path: '/doctor',
@@ -69,6 +75,7 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/book': typeof BookRoute
   '/doctor': typeof DoctorRoute
+  '/doctor-appointments': typeof DoctorAppointmentsRoute
   '/doctors': typeof DoctorsRoute
   '/login': typeof LoginRoute
   '/notifications': typeof NotificationsRoute
@@ -80,6 +87,7 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/book': typeof BookRoute
   '/doctor': typeof DoctorRoute
+  '/doctor-appointments': typeof DoctorAppointmentsRoute
   '/doctors': typeof DoctorsRoute
   '/login': typeof LoginRoute
   '/notifications': typeof NotificationsRoute
@@ -92,6 +100,7 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/book': typeof BookRoute
   '/doctor': typeof DoctorRoute
+  '/doctor-appointments': typeof DoctorAppointmentsRoute
   '/doctors': typeof DoctorsRoute
   '/login': typeof LoginRoute
   '/notifications': typeof NotificationsRoute
@@ -105,6 +114,7 @@ export interface FileRouteTypes {
     | '/'
     | '/book'
     | '/doctor'
+    | '/doctor-appointments'
     | '/doctors'
     | '/login'
     | '/notifications'
@@ -116,6 +126,7 @@ export interface FileRouteTypes {
     | '/'
     | '/book'
     | '/doctor'
+    | '/doctor-appointments'
     | '/doctors'
     | '/login'
     | '/notifications'
@@ -127,6 +138,7 @@ export interface FileRouteTypes {
     | '/'
     | '/book'
     | '/doctor'
+    | '/doctor-appointments'
     | '/doctors'
     | '/login'
     | '/notifications'
@@ -139,6 +151,7 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   BookRoute: typeof BookRoute
   DoctorRoute: typeof DoctorRoute
+  DoctorAppointmentsRoute: typeof DoctorAppointmentsRoute
   DoctorsRoute: typeof DoctorsRoute
   LoginRoute: typeof LoginRoute
   NotificationsRoute: typeof NotificationsRoute
@@ -191,6 +204,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DoctorsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/doctor-appointments': {
+      id: '/doctor-appointments'
+      path: '/doctor-appointments'
+      fullPath: '/doctor-appointments'
+      preLoaderRoute: typeof DoctorAppointmentsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/doctor': {
       id: '/doctor'
       path: '/doctor'
@@ -219,6 +239,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   BookRoute: BookRoute,
   DoctorRoute: DoctorRoute,
+  DoctorAppointmentsRoute: DoctorAppointmentsRoute,
   DoctorsRoute: DoctorsRoute,
   LoginRoute: LoginRoute,
   NotificationsRoute: NotificationsRoute,
