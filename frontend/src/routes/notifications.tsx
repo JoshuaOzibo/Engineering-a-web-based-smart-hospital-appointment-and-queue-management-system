@@ -43,15 +43,15 @@ function NotificationsPage() {
       tone: "primary",
       title: `Upcoming appointment with Dr. ${a.docFirstName}`,
       desc: `${a.appointmentDate ? formatDate(a.appointmentDate) : "Date TBD"}${a.problemDescription ? ` · ${a.problemDescription}` : ""}`,
-      when: "Pending confirmation",
+      when: "Upcoming",
     })),
-    // Approved appointments
+    // Completed visits
     ...approved.map((a) => ({
       icon: CheckCircle2,
       tone: "success",
-      title: `Appointment confirmed — Dr. ${a.docFirstName}`,
-      desc: `${a.appointmentDate ? formatDate(a.appointmentDate) : "Date TBD"} · Your appointment has been approved.`,
-      when: "Confirmed",
+      title: `Completed visit — Dr. ${a.docFirstName}`,
+      desc: `${a.appointmentDate ? formatDate(a.appointmentDate) : "Date TBD"} · Consultation completed successfully.`,
+      when: "Completed",
     })),
   ];
 
@@ -123,9 +123,9 @@ function NotificationsPage() {
             <div className="rounded-2xl border border-border bg-card p-5 shadow-soft">
               <div className="text-sm font-semibold mb-4">Your summary</div>
               <dl className="space-y-3 text-sm">
-                <SummaryRow k="Pending appointments" v={upcoming.length} tone="warning" />
-                <SummaryRow k="Confirmed appointments" v={approved.length} tone="success" />
-                <SummaryRow k="Total appointments" v={appointments.length} tone="muted" />
+                <SummaryRow k="Upcoming appointments" v={upcoming.length} tone="warning" />
+                <SummaryRow k="Completed visits" v={approved.length} tone="success" />
+                <SummaryRow k="Total visits" v={appointments.length} tone="muted" />
               </dl>
               <Link to="/patient" className="mt-4 flex items-center gap-1 text-xs text-primary font-medium hover:underline">
                 View dashboard →

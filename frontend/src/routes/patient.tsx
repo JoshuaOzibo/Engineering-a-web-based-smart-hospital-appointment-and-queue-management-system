@@ -146,7 +146,6 @@ function PatientDashboard() {
     queryKey: ["my-queue-token"],
     queryFn: () => queueApi.getMyToken(),
     enabled: isAuthenticated,
-    refetchInterval: 20000,
     staleTime: 1000 * 10,
   });
 
@@ -303,12 +302,12 @@ function PatientDashboard() {
               </div>
             ) : (
               <ul className="mt-4 divide-y divide-border">
-                {upcoming.slice(0, 5).map((appt, i) => (
+                {upcoming.slice(0, 5).map((appt) => (
                   <AppointmentRow
                     key={appt._id}
                     appt={appt}
-                    badge={i === 0 ? "Upcoming" : "Pending"}
-                    badgeTone={i === 0 ? "primary" : "muted"}
+                    badge="Upcoming"
+                    badgeTone="primary"
                     onCancel={() => {
                       if (window.confirm(`Cancel appointment with Dr. ${appt.docFirstName}?`)) {
                         cancelMutation.mutate(appt._id);
@@ -446,7 +445,6 @@ function QueueCard() {
     queryKey: ["my-queue-token"],
     queryFn: () => queueApi.getMyToken(),
     enabled: isAuthenticated,
-    refetchInterval: 20000, // poll every 20s as fallback
     staleTime: 1000 * 10,
   });
 

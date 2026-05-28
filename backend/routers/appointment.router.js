@@ -18,37 +18,27 @@ function createTransporter() {
   });
 }
 
-const DEFAULT_SLOTS = ["09:00", "10:00", "11:00", "12:00", "14:00", "15:00", "16:00"];
-
 /**
  * Returns true if `slotTime` is in the doctor's slots map for `isoDate`.
- * Falls back to DEFAULT_SLOTS if not configured.
  * isoDate format: "YYYY-MM-DD"
  */
 function isSlotAvailable(doctor, isoDate, slotTime) {
   const daySlots = doctor.slots && doctor.slots.get(isoDate);
-  if (daySlots === undefined) {
-    return DEFAULT_SLOTS.includes(slotTime);
-  }
+  if (!daySlots) return false;
   return daySlots.includes(slotTime);
 }
 
 /**
  * Removes a slot time from a doctor's slots map for a given ISO date.
- * Falls back to DEFAULT_SLOTS before removing.
  * Saves and returns the updated doctor document.
  */
 async function removeSlot(doctor, isoDate, slotTime) {
-  let daySlots = doctor.slots && doctor.slots.get(isoDate);
-  if (daySlots === undefined) {
-    daySlots = DEFAULT_SLOTS;
+  const daySlots = doctor.slots && doctor.slots.get(isoDate);
+  if (daySlots) {
+    const updated = daySlots.filter((t) => t !== slotTime);
+    doctor.slots.set(isoDate, updated);
+    await doctor.save();
   }
-  const updated = daySlots.filter((t) => t !== slotTime);
-  if (!doctor.slots) {
-    doctor.slots = new Map();
-  }
-  doctor.slots.set(isoDate, updated);
-  await doctor.save();
 }
 
 //!! ─── USER / PATIENT OPERATIONS ─────────────────────────────────────────────

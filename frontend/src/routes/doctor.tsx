@@ -259,8 +259,8 @@ function DoctorPage() {
                           <td className="px-5 py-3 text-muted-foreground max-w-[180px] truncate">{a.problemDescription ?? "—"}</td>
                           <td className="px-5 py-3">
                             <span className={cn("text-[11px] px-2 py-1 rounded-full font-medium",
-                              a.status ? "bg-success/15 text-success" : "bg-warning/20 text-warning-foreground")}>
-                              {a.status ? "Approved" : "Pending"}
+                              a.status ? "bg-success/15 text-success" : "bg-primary/10 text-primary")}>
+                              {a.status ? "Completed" : "Upcoming"}
                             </span>
                           </td>
                         </tr>

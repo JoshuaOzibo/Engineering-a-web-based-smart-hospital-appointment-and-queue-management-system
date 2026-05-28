@@ -156,17 +156,12 @@ function BookPage() {
     [allDoctors, specialtyFilter, cityFilter, query]
   );
 
-const DEFAULT_SLOTS = ["09:00", "10:00", "11:00", "12:00", "14:00", "15:00", "16:00"];
-
 // Available time slots for the selected doctor on the selected date
 const availableSlots = useMemo(() => {
   if (!doctor) return [];
   const slotsObj = doctor.slots || {};
   const raw = slotsObj[date];
-  if (raw !== undefined) {
-    return Array.isArray(raw) ? raw : [];
-  }
-  return DEFAULT_SLOTS;
+  return Array.isArray(raw) ? raw : [];
 }, [doctor, date]);
 
   // ── Booking mutation ────────────────────────────────────────────────────────
@@ -314,8 +309,7 @@ const availableSlots = useMemo(() => {
               <div className="grid grid-cols-3 sm:grid-cols-7 gap-2">
                 {nextDays(14).map((d) => {
                   const slotsOnDay = doctor.slots?.[d.iso];
-                  // If slotsOnDay is not defined, we fall back to clinic default slots (which has slots)
-                  const hasFreeSlots = slotsOnDay === undefined || (Array.isArray(slotsOnDay) && slotsOnDay.length > 0);
+                  const hasFreeSlots = Array.isArray(slotsOnDay) && slotsOnDay.length > 0;
                   
                   return (
                     <button
@@ -336,7 +330,7 @@ const availableSlots = useMemo(() => {
                       <span className="text-[9px] text-muted-foreground font-semibold">{d.mon}</span>
                       {hasFreeSlots && (
                         <span className="mt-1 text-[8px] text-success font-bold uppercase tracking-wide">
-                          {slotsOnDay ? `${slotsOnDay.length} slots` : "Available"}
+                          {slotsOnDay.length} slots
                         </span>
                       )}
                     </button>
