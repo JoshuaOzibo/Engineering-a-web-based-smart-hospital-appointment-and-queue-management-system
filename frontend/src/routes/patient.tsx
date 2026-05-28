@@ -13,9 +13,9 @@ import { appointmentApi, queueApi, doctorApi, type BackendAppointment } from "@/
 import { useAuth } from "@/lib/auth";
 import { useQueueSSE } from "@/lib/useQueueSSE";
 
-export const Route = createFileRoute("/dashboard")({
-  head: () => ({ meta: [{ title: "My Dashboard — Mediqueue" }] }),
-  component: Dashboard,
+export const Route = createFileRoute("/patient")({
+  head: () => ({ meta: [{ title: "Patient Console — Mediqueue" }] }),
+  component: PatientDashboard,
 });
 
 // ── Reschedule modal (inline) ─────────────────────────────────────────────────
@@ -93,38 +93,24 @@ function RescheduleModal({
   );
 }
 
-// ── Dashboard ─────────────────────────────────────────────────────────────────
-function Dashboard() {
+// ── Patient Dashboard ─────────────────────────────────────────────────────────────────
+function PatientDashboard() {
   const navigate = useNavigate();
   const { user, isAuthenticated, isLoading: authLoading } = useAuth();
   const queryClient = useQueryClient();
 
   const [rescheduleAppt, setRescheduleAppt] = useState<BackendAppointment | null>(null);
 
-  // Retrieve admin session to redirect admins to their portal
-  const adminSession = typeof window !== "undefined"
-    ? (() => {
-        try {
-          return JSON.parse(localStorage.getItem("mq_admin") ?? "null") as { email: string } | null;
-        } catch {
-          return null;
-        }
-      })()
-    : null;
-  const isAdmin = !!adminSession;
-
   useEffect(() => {
-    if (isAdmin) {
-      navigate({ to: "/admin", replace: true });
-    } else if (!authLoading && !isAuthenticated) {
+    if (!authLoading && !isAuthenticated) {
       toast.error("Authentication required: Please sign in to access your dashboard.");
       navigate({ to: "/login", replace: true });
     }
-  }, [isAdmin, authLoading, isAuthenticated, navigate]);
+  }, [authLoading, isAuthenticated, navigate]);
 
-  if (authLoading || isAdmin || !isAuthenticated) {
+  if (authLoading || !isAuthenticated) {
     return (
-      <AppLayout title="My Dashboard" subtitle="Loading dashboard…">
+      <AppLayout title="Patient Console" subtitle="Loading dashboard…">
         <div className="flex items-center justify-center py-32">
           <Loader2 className="size-8 animate-spin text-primary" />
         </div>

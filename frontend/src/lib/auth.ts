@@ -23,6 +23,7 @@ export type AuthContextValue = {
   isLoading: boolean;
   login: (payload: string, password: string) => Promise<void>;
   logout: () => void;
+  updateUser: (profile: AuthUser) => void;
 };
 
 // ── Storage helpers ───────────────────────────────────────────────────────────
@@ -86,12 +87,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(null);
   };
 
+  const updateUser = (profile: AuthUser) => {
+    localStorage.setItem(USER_KEY, JSON.stringify(profile));
+    setUser(profile);
+  };
+
   const value: AuthContextValue = {
     user,
     isAuthenticated: !!user,
     isLoading,
     login,
     logout,
+    updateUser,
   };
 
   return createElement(AuthContext.Provider, { value }, children);

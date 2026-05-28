@@ -135,7 +135,7 @@ function NotificationsPage() {
                 <SummaryRow k="Confirmed appointments" v={approved.length} tone="success" />
                 <SummaryRow k="Total appointments" v={appointments.length} tone="muted" />
               </dl>
-              <Link to="/dashboard" className="mt-4 flex items-center gap-1 text-xs text-primary font-medium hover:underline">
+              <Link to="/patient" className="mt-4 flex items-center gap-1 text-xs text-primary font-medium hover:underline">
                 View dashboard →
               </Link>
             </div>

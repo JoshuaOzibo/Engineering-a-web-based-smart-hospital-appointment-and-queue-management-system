@@ -126,9 +126,9 @@ function BookPage() {
     staleTime: 1000 * 60 * 2,
   });
 
-  // All doctors from API (approval is NOT required anymore!)
+  // All doctors from API
   const allDoctors = useMemo(
-    () => (doctorData?.doctor ?? []).filter((d) => d.isAvailable),
+    () => (doctorData?.doctor ?? []),
     [doctorData]
   );
 
@@ -136,17 +136,21 @@ function BookPage() {
   const filtered = useMemo(
     () =>
       allDoctors.filter((d) => {
+        const qualifications = d.qualifications || "";
+        const city = d.city || "";
+        const doctorName = d.doctorName || "";
+
         const matchSpecialty =
           specialtyFilter === "All specialties" ||
-          d.qualifications.toLowerCase() === specialtyFilter.toLowerCase();
+          qualifications.toLowerCase() === specialtyFilter.toLowerCase();
         const matchCity =
           cityFilter === "All locations" ||
-          d.city.toLowerCase() === cityFilter.toLowerCase();
+          city.toLowerCase() === cityFilter.toLowerCase();
         const matchQuery =
           query === "" ||
-          d.doctorName.toLowerCase().includes(query.toLowerCase()) ||
-          d.qualifications.toLowerCase().includes(query.toLowerCase()) ||
-          d.city.toLowerCase().includes(query.toLowerCase());
+          doctorName.toLowerCase().includes(query.toLowerCase()) ||
+          qualifications.toLowerCase().includes(query.toLowerCase()) ||
+          city.toLowerCase().includes(query.toLowerCase());
         return matchSpecialty && matchCity && matchQuery;
       }),
     [allDoctors, specialtyFilter, cityFilter, query]
@@ -259,10 +263,8 @@ function BookPage() {
                 {allDoctors.length === 0 ? (
                   <>
                     <p className="font-semibold text-foreground">No available doctors yet</p>
-                    <p className="text-sm text-muted-foreground mt-1 max-w-sm">
-                      Doctors must be added and approved by the hospital admin before they appear here.
-                      If you are a doctor, log in to the Doctor Console and use the <strong>My Profile</strong> panel
-                      to set your department and city, then ask the admin to approve your account.
+                    <p className="text-sm text-muted-foreground mt-1 max-w-md">
+                      If you are a doctor, please log in to the Doctor Console and use the <strong>My Profile</strong> panel to configure your department and city.
                     </p>
                   </>
                 ) : (
@@ -458,7 +460,7 @@ function BookPage() {
             <Info label="Where" value={ doctor.city} />
           </div>
           <Link
-            to="/dashboard"
+            to="/patient"
             className="mt-6 inline-flex items-center gap-2 h-11 px-5 rounded-xl bg-primary text-primary-foreground text-sm font-medium"
           >
             View my dashboard
@@ -562,10 +564,14 @@ function DoctorCard({
         <span
           className={cn(
             "ml-2 shrink-0 px-2 py-1 rounded-full font-medium",
-            totalSlots > 0 ? "bg-success/15 text-success" : "bg-muted text-muted-foreground"
+            d.isAvailable === false
+              ? "bg-destructive/15 text-destructive"
+              : totalSlots > 0
+              ? "bg-success/15 text-success"
+              : "bg-muted text-muted-foreground"
           )}
         >
-          {totalSlots > 0 ? `${totalSlots} slots` : "Full"}
+          {d.isAvailable === false ? "Unavailable" : totalSlots > 0 ? `${totalSlots} slots` : "Full"}
         </span>
       </div>
     </button>

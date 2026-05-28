@@ -92,6 +92,8 @@ export const authApi = {
       "/user/signin",
       body,
     ),
+  updateUser: (body: { first_name: string; last_name: string; email: string; mobile: string }) =>
+    api.patch<{ msg: string; user: { name: string; last_name: string; email: string; mobile: string } }>("/user/update", body),
 };
 
 // Doctors
@@ -130,6 +132,8 @@ export const doctorApi = {
     api.patch<{ msg: string }>(`/doctor/addSlots/${doctorId}`, { date, slots }),
   updateProfile: (doctorId: string, body: UpdateDoctorProfileBody) =>
     api.patch<{ msg: string; doctor: BackendDoctor }>(`/doctor/updateProfile/${doctorId}`, body),
+  createProfile: (body: any) =>
+    api.post<{ msg: string; doctor: BackendDoctor }>("/doctor/addDoctor", body),
   rate: (doctorId: string, rating: number) =>
     api.patch<{ msg: string; rating: number }>(`/doctor/rate/${doctorId}`, { rating }),
   // Admin actions

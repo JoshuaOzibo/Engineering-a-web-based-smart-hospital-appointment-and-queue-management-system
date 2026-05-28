@@ -11,14 +11,12 @@ const { connection }       = require("./config/db");
 const { doctorRouter }     = require("./routers/doctor.router");
 const { departmentRouter } = require("./routers/department.router");
 const { appointmentRouter }= require("./routers/appointment.router");
-const { dashboardRouter }  = require("./routers/adminDash.router");
 const { queueRouter }      = require("./routers/queue.router");
 
 app.use("/user",        userRouter);
 app.use("/department",  departmentRouter);
 app.use("/doctor",      doctorRouter);
 app.use("/appointment", appointmentRouter);
-app.use("/admin",       dashboardRouter);
 app.use("/queue",       queueRouter);
 
 app.listen(process.env.port, async () => {

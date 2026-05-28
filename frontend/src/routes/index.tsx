@@ -156,7 +156,7 @@ function Landing() {
                   </li>
                 ))}
               </ul>
-              <Link to="/dashboard" className="mt-8 inline-flex items-center gap-2 text-primary font-medium">
+              <Link to="/patient" className="mt-8 inline-flex items-center gap-2 text-primary font-medium">
                 See your patient dashboard <ArrowRight className="size-4" />
               </Link>
             </div>
@@ -248,7 +248,7 @@ function Landing() {
             <ul className="space-y-2 text-muted-foreground">
               <li><Link to="/book">Book appointment</Link></li>
               <li><Link to="/queue">Live queue</Link></li>
-              <li><Link to="/dashboard">My dashboard</Link></li>
+              <li><Link to="/patient">My dashboard</Link></li>
             </ul>
           </div>
           <div>

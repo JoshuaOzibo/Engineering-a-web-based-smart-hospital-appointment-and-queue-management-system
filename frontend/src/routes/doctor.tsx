@@ -84,14 +84,17 @@ function DoctorPage() {
 
   useEffect(() => {
     if (!drLoading) {
-      if (!isAdmin && !loggedInDoctor) {
-        toast.error("Access Denied: You are not registered as a doctor in our system.");
-        navigate({ to: "/dashboard", replace: true });
+      if (!isAuthenticated) {
+        toast.error("Authentication required: Please sign in to access the Doctor Console.");
+        navigate({ to: "/login", replace: true });
+      } else if (!loggedInDoctor) {
+        toast.info("Please configure your professional details to activate your doctor profile.");
+        window.location.href = "/profile?register=doctor";
       } else if (loggedInDoctor && selectedDoctorId !== loggedInDoctor._id) {
         setSelectedDoctorId(loggedInDoctor._id);
       }
     }
-  }, [drLoading, isAdmin, loggedInDoctor, navigate, selectedDoctorId]);
+  }, [drLoading, isAuthenticated, loggedInDoctor, navigate, selectedDoctorId]);
 
   // ── Fetch only appointments for the selected doctor ─────────────────────────
   const { data: apptData, isLoading: apptLoading } = useQuery({

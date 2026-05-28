@@ -1,4 +1,5 @@
 const { UserModel } = require("../models/user.model");
+const { authenticate } = require("../middlewares/authenticator.mw");
 const userRouter = require("express").Router();
 require("dotenv").config();
 const jwt = require("jsonwebtoken");
@@ -100,6 +101,34 @@ userRouter.post("/signin", async (req, res) => {
   } catch (e) {
     console.error(`[LOGIN] ❌ Error for ${payload}:`, e.message);
     res.status(500).send({ msg: "Error in Login" });
+  }
+});
+
+// Update standard user/patient details
+userRouter.patch("/update", authenticate, async (req, res) => {
+  const { first_name, last_name, mobile, email } = req.body;
+  const { userID } = req.body; // Injected by authenticate middleware
+  try {
+    const updatedUser = await UserModel.findByIdAndUpdate(
+      userID,
+      { first_name, last_name, mobile, email },
+      { new: true }
+    );
+    if (!updatedUser) {
+      return res.status(404).send({ msg: "User not found" });
+    }
+    res.status(200).send({
+      msg: "User profile updated successfully",
+      user: {
+        name: updatedUser.first_name,
+        last_name: updatedUser.last_name,
+        email: updatedUser.email,
+        mobile: updatedUser.mobile
+      }
+    });
+  } catch (error) {
+    console.error("[USER UPDATE] error:", error);
+    res.status(500).send({ msg: "Error updating profile — check for duplicate email/phone" });
   }
 });
 

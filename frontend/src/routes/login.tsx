@@ -1,6 +1,7 @@
 import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { motion, AnimatePresence } from "framer-motion";
-import { useState, useEffect } from "react";
+import { useState, useEffect, ReactNode } from "react";
+import { useQuery } from "@tanstack/react-query";
 import {
   Hospital,
   Mail,
@@ -15,8 +16,11 @@ import {
   ShieldCheck,
   Clock,
   HeartPulse,
+  Award,
+  MapPin,
+  Stethoscope,
 } from "lucide-react";
-import { authApi } from "@/lib/api";
+import { authApi, doctorApi, departmentApi } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import { cn } from "@/lib/utils";
 
@@ -24,13 +28,14 @@ export const Route = createFileRoute("/login")({
   head: () => ({
     meta: [
       { title: "Sign In — Mediqueue" },
-      { name: "description", content: "Sign in or create a Mediqueue patient account to book appointments and track your queue." },
+      { name: "description", content: "Sign in or create a Mediqueue account to book appointments and track your queue." },
     ],
   }),
   component: LoginPage,
 });
 
 type Tab = "signin" | "signup";
+type Role = "patient" | "doctor";
 
 const features = [
   { icon: Clock, title: "Skip the waiting room", desc: "Join the queue from home and arrive exactly on time." },
@@ -38,11 +43,46 @@ const features = [
   { icon: HeartPulse, title: "Real-time updates", desc: "Live queue tracking across all departments." },
 ];
 
+const NIGERIAN_CITIES = [
+  "Lagos", "Abuja", "Kano", "Ibadan", "Port Harcourt", "Benin City",
+  "Maiduguri", "Enugu", "Kaduna", "Ilorin", "Onitsha", "Warri",
+  "Aba", "Owerri", "Abeokuta", "Sokoto", "Uyo", "Calabar",
+  "Akure", "Jos", "Bauchi", "Zaria", "Asaba", "Yola", "Minna",
+];
+
+const SPECIALTIES = [
+  "General Medicine",
+  "Cardiology",
+  "Dermatology",
+  "Pediatrics",
+  "Neurology",
+  "Orthopedics",
+  "Psychiatry",
+  "Gynecology",
+  "Ophthalmology",
+  "Oncology",
+  "Radiology",
+  "Urology",
+];
+
 function LoginPage() {
   const navigate = useNavigate();
-  const { login, isAuthenticated } = useAuth();
+  const { login, logout, isAuthenticated } = useAuth();
 
-  const [tab, setTab] = useState<Tab>("signin");
+  const [role, setRole] = useState<Role>(() => {
+    if (typeof window !== "undefined" && window.location.search.includes("register=doctor")) {
+      return "doctor";
+    }
+    return "patient";
+  });
+
+  const [tab, setTab] = useState<Tab>(() => {
+    if (typeof window !== "undefined" && window.location.search.includes("register=doctor")) {
+      return "signup";
+    }
+    return "signin";
+  });
+
   const [showPassword, setShowPassword] = useState(false);
 
   // Sign-in fields
@@ -56,25 +96,59 @@ function LoginPage() {
   const [suMobile, setSuMobile] = useState("");
   const [suPassword, setSuPassword] = useState("");
 
+  // Doctor-only sign-up fields
+  const [docQualifications, setDocQualifications] = useState("");
+  const [docExperience, setDocExperience] = useState("");
+  const [docCity, setDocCity] = useState("");
+  const [docDeptId, setDocDeptId] = useState("");
+
   // UI state
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
 
+  // Fetch departments for doctor registration dropdown
+  const { data: departments } = useQuery({
+    queryKey: ["departments"],
+    queryFn: () => departmentApi.getAll(),
+  });
+
   // Redirect if already logged in
   useEffect(() => {
     if (isAuthenticated) {
-      navigate({ to: "/dashboard" });
+      if (role === "doctor") {
+        navigate({ to: "/doctor" });
+      } else {
+        navigate({ to: "/patient" });
+      }
     }
-  }, [isAuthenticated, navigate]);
+  }, [isAuthenticated, role, navigate]);
 
   async function handleSignIn(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
     setLoading(true);
     try {
+      // 1. Authenticate user credentials
       await login(siPayload, siPassword);
-      navigate({ to: "/dashboard" });
+
+      if (role === "doctor") {
+        // 2. Enforce doctor profile exists
+        const allDocRes = await doctorApi.getAll();
+        const matchedDoctor = (allDocRes?.doctor ?? []).find(
+          (d) => d.email.toLowerCase() === siPayload.toLowerCase() || d.phoneNo === siPayload
+        );
+
+        if (!matchedDoctor) {
+          // Log out and throw access error if profile does not exist
+          logout();
+          throw new Error("Access Denied: This account is not registered as a doctor. Please register via the Doctor Sign Up portal first.");
+        }
+        
+        navigate({ to: "/doctor" });
+      } else {
+        navigate({ to: "/patient" });
+      }
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Login failed. Please try again.");
     } finally {
@@ -87,6 +161,13 @@ function LoginPage() {
     setError(null);
     setLoading(true);
     try {
+      if (role === "doctor") {
+        if (!docQualifications || !docExperience.trim() || !docCity || !docDeptId) {
+          throw new Error("All professional credentials (Specialty, Experience, City, Department) are required for doctors.");
+        }
+      }
+
+      // 1. Sign up user account
       await authApi.signup({
         first_name: suFirstName,
         last_name: suLastName,
@@ -94,9 +175,27 @@ function LoginPage() {
         mobile: suMobile,
         password: suPassword,
       });
-      // Auto-login immediately after signup so user lands on the dashboard
+
+      // 2. Sign in to retrieve auth token
       await login(suEmail, suPassword);
-      navigate({ to: "/dashboard" });
+
+      // 3. For doctors, automatically create the doctor profile too
+      if (role === "doctor") {
+        await doctorApi.createProfile({
+          doctorName: `Dr. ${suFirstName} ${suLastName}`.trim(),
+          email: suEmail.toLowerCase(),
+          qualifications: docQualifications,
+          experience: docExperience,
+          phoneNo: suMobile,
+          city: docCity,
+          departmentId: Number(docDeptId),
+          isAvailable: true,
+          status: true, // auto-approve
+        });
+        navigate({ to: "/doctor" });
+      } else {
+        navigate({ to: "/patient" });
+      }
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Signup failed. Please try again.");
     } finally {
@@ -202,8 +301,8 @@ function LoginPage() {
       </div>
 
       {/* ── Right panel (form) ────────────────────────────────────────────── */}
-      <div className="flex-1 flex items-center justify-center px-6 py-12">
-        <div className="w-full max-w-md">
+      <div className="flex-1 flex items-center justify-center px-6 py-12 overflow-y-auto">
+        <div className="w-full max-w-md my-auto">
           {/* Mobile logo */}
           <div className="lg:hidden mb-8 flex items-center gap-3">
             <div className="size-10 rounded-xl bg-primary text-primary-foreground grid place-items-center">
@@ -212,7 +311,38 @@ function LoginPage() {
             <span className="font-bold text-lg text-foreground">Mediqueue</span>
           </div>
 
-          {/* Tab switcher */}
+          {/* Role selector (Patient Portal vs Doctor Portal) */}
+          <div className="flex rounded-xl bg-muted p-1 mb-4">
+            {(["patient", "doctor"] as Role[]).map((r) => (
+              <button
+                key={r}
+                type="button"
+                onClick={() => {
+                  setRole(r);
+                  setError(null);
+                  setSuccessMsg(null);
+                }}
+                className={cn(
+                  "flex-1 h-10 rounded-lg text-xs font-semibold uppercase tracking-wider transition-all inline-flex items-center justify-center gap-1.5",
+                  role === r
+                    ? "bg-card text-primary shadow-sm border border-border"
+                    : "text-muted-foreground hover:text-foreground"
+                )}
+              >
+                {r === "patient" ? (
+                  <>
+                    <User className="size-3.5" /> Patient Portal
+                  </>
+                ) : (
+                  <>
+                    <Stethoscope className="size-3.5" /> Doctor Console
+                  </>
+                )}
+              </button>
+            ))}
+          </div>
+
+          {/* Tab switcher (Sign In vs Create Account) */}
           <div className="flex rounded-xl bg-muted p-1 mb-8">
             {(["signin", "signup"] as Tab[]).map((t) => (
               <button
@@ -241,8 +371,17 @@ function LoginPage() {
                 transition={{ duration: 0.22 }}
               >
                 <div className="mb-6">
-                  <h2 className="text-2xl font-bold text-foreground">Welcome back</h2>
-                  <p className="text-muted-foreground text-sm mt-1">Sign in with your email or mobile number.</p>
+                  {role === "doctor" ? (
+                    <>
+                      <h2 className="text-2xl font-bold text-foreground">Doctor Portal Login</h2>
+                      <p className="text-muted-foreground text-sm mt-1">Sign in to manage your appointments and queue.</p>
+                    </>
+                  ) : (
+                    <>
+                      <h2 className="text-2xl font-bold text-foreground">Welcome back</h2>
+                      <p className="text-muted-foreground text-sm mt-1">Sign in with your email or mobile number.</p>
+                    </>
+                  )}
                 </div>
 
                 <form onSubmit={handleSignIn} className="space-y-4" id="signin-form">
@@ -300,8 +439,17 @@ function LoginPage() {
                 transition={{ duration: 0.22 }}
               >
                 <div className="mb-6">
-                  <h2 className="text-2xl font-bold text-foreground">Create your account</h2>
-                  <p className="text-muted-foreground text-sm mt-1">Fill in your details to get started.</p>
+                  {role === "doctor" ? (
+                    <>
+                      <h2 className="text-2xl font-bold text-foreground">Doctor Console Registration</h2>
+                      <p className="text-muted-foreground text-sm mt-1">Register your professional medical profile.</p>
+                    </>
+                  ) : (
+                    <>
+                      <h2 className="text-2xl font-bold text-foreground">Create your account</h2>
+                      <p className="text-muted-foreground text-sm mt-1">Fill in your details to get started.</p>
+                    </>
+                  )}
                 </div>
 
                 {successMsg && (
@@ -317,6 +465,80 @@ function LoginPage() {
                   </div>
                   <FormField id="su-email" label="Email" icon={<Mail className="size-4" />} type="email" placeholder="sara@example.com" value={suEmail} onChange={setSuEmail} required />
                   <FormField id="su-mobile" label="Mobile" icon={<Phone className="size-4" />} type="tel" placeholder="+1 555 000 0000" value={suMobile} onChange={setSuMobile} required />
+
+                  {/* Doctor-only Fields */}
+                  {role === "doctor" && (
+                    <div className="space-y-4 pt-2 border-t border-border">
+                      <div className="grid grid-cols-2 gap-3">
+                        <label className="block">
+                          <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5 mb-1.5">
+                            <Award className="size-3.5 text-primary" /> Specialty
+                          </span>
+                          <select
+                            value={docQualifications}
+                            onChange={(e) => setDocQualifications(e.target.value)}
+                            required
+                            className="w-full h-11 px-3 rounded-xl border border-input bg-surface text-sm focus:outline-none focus:ring-2 focus:ring-ring/40 font-medium"
+                          >
+                            <option value="">— Select specialty —</option>
+                            {SPECIALTIES.map((spec) => (
+                              <option key={spec} value={spec}>
+                                {spec}
+                              </option>
+                            ))}
+                          </select>
+                        </label>
+                        <FormField
+                          id="su-experience"
+                          label="Experience (Years)"
+                          type="number"
+                          placeholder="5"
+                          value={docExperience}
+                          onChange={setDocExperience}
+                          required
+                        />
+                      </div>
+                      <div className="grid grid-cols-2 gap-3">
+                        <label className="block">
+                          <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5 mb-1.5">
+                            <MapPin className="size-3.5 text-primary" /> City
+                          </span>
+                          <select
+                            value={docCity}
+                            onChange={(e) => setDocCity(e.target.value)}
+                            required
+                            className="w-full h-11 px-3 rounded-xl border border-input bg-surface text-sm focus:outline-none focus:ring-2 focus:ring-ring/40 font-medium"
+                          >
+                            <option value="">— Select city —</option>
+                            {NIGERIAN_CITIES.map((c) => (
+                              <option key={c} value={c}>
+                                {c}
+                              </option>
+                            ))}
+                          </select>
+                        </label>
+                        <label className="block">
+                          <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5 mb-1.5">
+                            <Hospital className="size-3.5 text-primary" /> Department
+                          </span>
+                          <select
+                            value={docDeptId}
+                            onChange={(e) => setDocDeptId(e.target.value)}
+                            required
+                            className="w-full h-11 px-3 rounded-xl border border-input bg-surface text-sm focus:outline-none focus:ring-2 focus:ring-ring/40 font-medium"
+                          >
+                            <option value="">— Select dept —</option>
+                            {departments?.map((d) => (
+                              <option key={d._id} value={d.departmentId}>
+                                {d.deptName}
+                              </option>
+                            ))}
+                          </select>
+                        </label>
+                      </div>
+                    </div>
+                  )}
+
                   <div className="relative">
                     <FormField id="su-password" label="Password" icon={<Lock className="size-4" />} type={showPassword ? "text" : "password"} placeholder="Create a password" value={suPassword} onChange={setSuPassword} required />
                     <button type="button" onClick={() => setShowPassword((v) => !v)} className="absolute right-3 bottom-3 text-muted-foreground hover:text-foreground">
@@ -363,36 +585,35 @@ function FormField({
 }: {
   id: string;
   label: string;
-  icon: React.ReactNode;
+  icon?: ReactNode;
   type: string;
   placeholder: string;
   value: string;
-  onChange: (v: string) => void;
+  onChange: (val: string) => void;
   required?: boolean;
 }) {
   return (
-    <label className="block" htmlFor={id}>
-      <span className="text-sm font-medium text-foreground">{label}</span>
-      <div className="relative mt-1.5">
-        <div className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">{icon}</div>
-        <input
-          id={id}
-          type={type}
-          placeholder={placeholder}
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-          required={required}
-          className="w-full h-11 rounded-xl border border-input bg-card pl-10 pr-4 text-sm focus:outline-none focus:ring-2 focus:ring-ring/40 focus:border-ring transition-colors"
-        />
-      </div>
+    <label htmlFor={id} className="block text-left">
+      <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5 mb-1.5">
+        {icon} {label}
+      </span>
+      <input
+        id={id}
+        type={type}
+        placeholder={placeholder}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        required={required}
+        className="w-full h-11 px-4 rounded-xl border border-input bg-surface text-sm focus:outline-none focus:ring-2 focus:ring-ring/40 font-medium"
+      />
     </label>
   );
 }
 
 function ErrorBanner({ msg }: { msg: string }) {
   return (
-    <div className="flex items-center gap-2 rounded-xl bg-destructive/10 border border-destructive/20 text-destructive px-4 py-3 text-sm">
-      <span className="shrink-0">⚠</span> {msg}
+    <div className="p-3 rounded-xl bg-destructive/15 text-destructive text-xs font-semibold leading-relaxed text-left">
+      ⚠️ {msg}
     </div>
   );
 }

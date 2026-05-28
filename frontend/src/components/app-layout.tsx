@@ -7,7 +7,7 @@ import { useQuery } from "@tanstack/react-query";
 import { doctorApi } from "@/lib/api";
 
 const nav = [
-  { to: "/dashboard", label: "Overview", icon: LayoutDashboard, group: "Patient" },
+  { to: "/patient", label: "Overview", icon: LayoutDashboard, group: "Patient" },
   { to: "/book", label: "Book Appointment", icon: Calendar, group: "Patient" },
   { to: "/queue", label: "Live Queue", icon: Activity, group: "Patient" },
   { to: "/notifications", label: "Notifications", icon: Bell, group: "Patient" },
@@ -18,18 +18,6 @@ const nav = [
 export function AppLayout({ children, title, subtitle, actions }: { children: ReactNode; title: string; subtitle?: string; actions?: ReactNode }) {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const { user, isAuthenticated, logout } = useAuth();
-
-  // Retrieve admin session
-  const adminSession = typeof window !== "undefined"
-    ? (() => {
-        try {
-          return JSON.parse(localStorage.getItem("mq_admin") ?? "null") as { email: string } | null;
-        } catch {
-          return null;
-        }
-      })()
-    : null;
-  const isAdmin = !!adminSession;
 
   // Retrieve doctors to check if user's email belongs to an approved doctor
   const { data: doctorData } = useQuery({
@@ -45,13 +33,16 @@ export function AppLayout({ children, title, subtitle, actions }: { children: Re
   const roleLabel = isDoctor ? (isApprovedDoctor ? "Doctor" : "Doctor (Pending Approval)") : "Patient";
 
   // Filter groups & navigation links based on role
-  const showStaffGroup = isAdmin || isDoctor;
+  const showStaffGroup = isDoctor || isAuthenticated;
   const groups = showStaffGroup ? (["Patient", "Staff"] as const) : (["Patient"] as const);
 
   const filteredNav = nav.filter((item) => {
     if (item.group === "Staff") {
-      if (item.to === "/doctor" || item.to === "/profile") {
-        return isAdmin || isDoctor;
+      if (item.to === "/doctor") {
+        return isDoctor;
+      }
+      if (item.to === "/profile") {
+        return isAuthenticated;
       }
       return false;
     }
@@ -106,27 +97,7 @@ export function AppLayout({ children, title, subtitle, actions }: { children: Re
 
         {/* User card */}
         <div className="m-3 rounded-xl border border-sidebar-border bg-card p-4">
-          {isAdmin ? (
-            <div className="flex items-center gap-3">
-              <div className="size-9 rounded-full bg-primary text-primary-foreground grid place-items-center text-sm font-semibold">
-                AD
-              </div>
-              <div className="leading-tight flex-1 min-w-0">
-                <div className="text-sm font-medium text-foreground truncate">System Admin</div>
-                <div className="text-xs text-muted-foreground truncate">{adminSession.email}</div>
-              </div>
-              <button
-                onClick={() => {
-                  localStorage.removeItem("mq_admin");
-                  window.location.href = "/admin";
-                }}
-                title="Sign out Admin"
-                className="size-8 grid place-items-center rounded-lg hover:bg-muted text-muted-foreground"
-              >
-                <LogOut className="size-4" />
-              </button>
-            </div>
-          ) : isAuthenticated && user ? (
+          {isAuthenticated && user ? (
             <div className="flex items-center gap-3">
               <div className="size-9 rounded-full bg-primary text-primary-foreground grid place-items-center text-sm font-semibold">
                 {initials}
