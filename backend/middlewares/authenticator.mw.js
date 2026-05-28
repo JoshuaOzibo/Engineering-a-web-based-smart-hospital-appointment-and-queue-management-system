@@ -18,7 +18,6 @@ require("dotenv").config();
 
 const authenticate = async (req, res, next) => {
   const token = req.headers?.authorization;
-  console.log("From Middleware:", token);
   if (!token) {
     return res.status(401).send({ msg: "Enter Token First" });
   } else {
@@ -35,7 +34,6 @@ const authenticate = async (req, res, next) => {
           return res.status(401).send({ msg: "Session expired or user deleted. Please log in again." });
         }
 
-        console.log('Middleware Console', userID, email);
         req.body.userID = userID;
         req.body.email = email;
 

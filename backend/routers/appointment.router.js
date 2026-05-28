@@ -18,28 +18,37 @@ function createTransporter() {
   });
 }
 
-// ── Slot helpers (ISO date key system) ───────────────────────────────────────
+const DEFAULT_SLOTS = ["09:00", "10:00", "11:00", "12:00", "14:00", "15:00", "16:00"];
+
 /**
  * Returns true if `slotTime` is in the doctor's slots map for `isoDate`.
+ * Falls back to DEFAULT_SLOTS if not configured.
  * isoDate format: "YYYY-MM-DD"
  */
 function isSlotAvailable(doctor, isoDate, slotTime) {
   const daySlots = doctor.slots && doctor.slots.get(isoDate);
-  if (!daySlots) return false;
+  if (daySlots === undefined) {
+    return DEFAULT_SLOTS.includes(slotTime);
+  }
   return daySlots.includes(slotTime);
 }
 
 /**
  * Removes a slot time from a doctor's slots map for a given ISO date.
+ * Falls back to DEFAULT_SLOTS before removing.
  * Saves and returns the updated doctor document.
  */
 async function removeSlot(doctor, isoDate, slotTime) {
-  const daySlots = doctor.slots && doctor.slots.get(isoDate);
-  if (daySlots) {
-    const updated = daySlots.filter((t) => t !== slotTime);
-    doctor.slots.set(isoDate, updated);
-    await doctor.save();
+  let daySlots = doctor.slots && doctor.slots.get(isoDate);
+  if (daySlots === undefined) {
+    daySlots = DEFAULT_SLOTS;
   }
+  const updated = daySlots.filter((t) => t !== slotTime);
+  if (!doctor.slots) {
+    doctor.slots = new Map();
+  }
+  doctor.slots.set(isoDate, updated);
+  await doctor.save();
 }
 
 //!! ─── USER / PATIENT OPERATIONS ─────────────────────────────────────────────
@@ -106,10 +115,17 @@ appointmentRouter.post("/create/:doctorId", authenticate, async (req, res) => {
     const doctor = await DoctorModel.findById(doctorId);
     const patient = await UserModel.findById(patientId);
 
-    if (!doctor) return res.status(404).send({ msg: "Doctor does not exist" });
-    if (!patient) return res.status(404).send({ msg: "Patient does not exist" });
+    if (!doctor) {
+      console.warn(`[BOOKING] ❌ Doctor not found: ${doctorId}`);
+      return res.status(404).send({ msg: "Doctor does not exist" });
+    }
+    if (!patient) {
+      console.warn(`[BOOKING] ❌ Patient not found: ${patientId}`);
+      return res.status(404).send({ msg: "Patient does not exist" });
+    }
     if (!doctor.isAvailable) {
-      return res.send({ msg: `${doctor.doctorName} is currently unavailable` });
+      console.warn(`[BOOKING] ❌ Doctor unavailable: ${doctor.doctorName}`);
+      return res.status(400).send({ msg: `${doctor.doctorName} is currently unavailable` });
     }
 
     let { date, slotTime, ageOfPatient, gender, address, problemDescription, appointmentDate } = req.body;
@@ -118,6 +134,7 @@ appointmentRouter.post("/create/:doctorId", authenticate, async (req, res) => {
     if (date && slotTime) {
       const available = isSlotAvailable(doctor, date, slotTime);
       if (!available) {
+        console.warn(`[BOOKING] ❌ Slot taken or unavailable: Dr. ${doctor.doctorName} - Date: ${date} - Slot: ${slotTime}`);
         return res.status(409).send({ msg: "This slot is no longer available. Please choose another." });
       }
       // Remove the slot so no one else can book it

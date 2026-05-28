@@ -1,6 +1,6 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { AppLayout } from "@/components/app-layout";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import {
@@ -93,6 +93,10 @@ function RescheduleModal({
   );
 }
 
+function formatTokenNumber(n: number) {
+  return `A-${String(n).padStart(3, "0")}`;
+}
+
 // ── Patient Dashboard ─────────────────────────────────────────────────────────────────
 function PatientDashboard() {
   const navigate = useNavigate();
@@ -136,6 +140,74 @@ function PatientDashboard() {
   // Split into upcoming (status false = pending/upcoming) and past (status true = completed)
   const upcoming = appointments.filter((a) => !a.status);
   const past = appointments.filter((a) => a.status);
+
+  // ── Fetch active queue status ──────────────────────────────────────────────
+  const { data: myToken } = useQuery({
+    queryKey: ["my-queue-token"],
+    queryFn: () => queueApi.getMyToken(),
+    enabled: isAuthenticated,
+    refetchInterval: 20000,
+    staleTime: 1000 * 10,
+  });
+
+  // ── Construct dynamic health reminders ──────────────────────────────────────
+  const healthReminders = useMemo(() => {
+    const list: { title: string; desc: string; tone: "info" | "warning" | "success" }[] = [];
+
+    // 1. Live Queue Notification
+    if (myToken) {
+      if (myToken.status === "serving") {
+        list.push({
+          title: "Consultation Ready",
+          desc: `Your token ${formatTokenNumber(myToken.tokenNumber)} is currently active. Please proceed to the room.`,
+          tone: "warning",
+        });
+      } else {
+        list.push({
+          title: `Active Queue: ${myToken.deptName}`,
+          desc: `Token ${formatTokenNumber(myToken.tokenNumber)} (Position: ${myToken.position} patient${myToken.position !== 1 ? "s" : ""} ahead)`,
+          tone: "info",
+        });
+      }
+    }
+
+    // 2. Upcoming Appointment Alert
+    if (upcoming.length > 0) {
+      const nextAppt = upcoming[0];
+      const apptDateStr = nextAppt.appointmentDate ? formatDate(nextAppt.appointmentDate) : "TBD";
+      list.push({
+        title: `Appointment with Dr. ${nextAppt.docFirstName}`,
+        desc: `Scheduled on ${apptDateStr} for "${nextAppt.problemDescription || "consultation"}".`,
+        tone: "success",
+      });
+    }
+
+    // 3. Past Visits Follow-up Prompt
+    if (past.length > 0) {
+      const lastAppt = past[0];
+      const lastVisitDate = lastAppt.appointmentDate ? new Date(lastAppt.appointmentDate) : null;
+      if (lastVisitDate) {
+        const diffTime = Math.abs(new Date().getTime() - lastVisitDate.getTime());
+        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+        list.push({
+          title: "Follow-up Check",
+          desc: `It has been ${diffDays} day${diffDays !== 1 ? "s" : ""} since your check-up with Dr. ${lastAppt.docFirstName}.`,
+          tone: "info",
+        });
+      }
+    }
+
+    // 4. Default preventative health recommendations
+    if (list.length < 3) {
+      list.push({
+        title: "Flu Vaccine Recommendation",
+        desc: "Protect yourself during flu season. Free vaccination is available at any of our branches.",
+        tone: "info",
+      });
+    }
+
+    return list;
+  }, [upcoming, past, myToken]);
 
   // ── Cancel mutation ─────────────────────────────────────────────────────────
   const cancelMutation = useMutation({
@@ -182,18 +254,24 @@ function PatientDashboard() {
 
           {/* ── Health reminders ────────────────────────────────────────────── */}
           <aside className="rounded-2xl border border-border bg-card p-6 shadow-soft">
-            <div className="flex items-center gap-2 text-sm font-semibold">
-              <HeartPulse className="size-4 text-primary" /> Health reminders
+            <div className="flex items-center gap-2 text-sm font-semibold mb-4">
+              <HeartPulse className="size-4 text-primary animate-pulse" /> Health reminders
             </div>
-            <ul className="mt-4 space-y-3 text-sm">
-              {[
-                { t: "Annual check-up due", d: "Last visit was 11 months ago." },
-                { t: "Refill: Lisinopril 10mg", d: "Refill request opens Jan 22." },
-                { t: "Flu vaccine recommended", d: "Free at any branch." },
-              ].map((r) => (
-                <li key={r.t} className="rounded-xl border border-border bg-surface p-3">
-                  <div className="font-medium">{r.t}</div>
-                  <div className="text-xs text-muted-foreground mt-0.5">{r.d}</div>
+            <ul className="space-y-3 text-sm">
+              {healthReminders.map((r, i) => (
+                <li
+                  key={i}
+                  className={cn(
+                    "rounded-xl border p-3.5 transition-all shadow-sm",
+                    r.tone === "success"
+                      ? "border-emerald-500/20 bg-emerald-500/5 text-emerald-800 dark:text-emerald-300"
+                      : r.tone === "warning"
+                      ? "border-amber-500/20 bg-amber-500/5 text-amber-800 dark:text-amber-300"
+                      : "border-border bg-surface text-foreground"
+                  )}
+                >
+                  <div className="font-semibold text-xs tracking-tight">{r.title}</div>
+                  <div className="text-xs opacity-85 mt-1 leading-relaxed">{r.desc}</div>
                 </li>
               ))}
             </ul>
