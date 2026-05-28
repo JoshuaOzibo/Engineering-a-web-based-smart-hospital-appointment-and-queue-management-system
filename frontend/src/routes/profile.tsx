@@ -244,7 +244,7 @@ function ProfilePage() {
     >
       <div className="max-w-4xl mx-auto space-y-6">
         {/* Dynamic switcher tabs if user is a doctor or registering */}
-        {showTabHeader && (
+        {/* {showTabHeader && (
           <div className="flex border-b border-border mb-6">
             <button
               onClick={() => setActiveTab("personal")}
@@ -269,7 +269,7 @@ function ProfilePage() {
               🩺 Professional Profile
             </button>
           </div>
-        )}
+        )} */}
 
         <div className="grid gap-8 md:grid-cols-3">
           {/* ── Left Card Summary Panel ────────────────────────────────────── */}
@@ -433,26 +433,7 @@ function ProfilePage() {
                   )}
                 </button>
 
-                {!isDoctor && !showDoctorRegister && (
-                  <div className="pt-6 border-t border-border flex flex-col sm:flex-row items-center justify-between gap-4">
-                    <div className="text-left">
-                      <h4 className="text-sm font-semibold text-foreground">Are you a Medical Professional?</h4>
-                      <p className="text-xs text-muted-foreground mt-0.5">
-                        Register as a doctor to start consulting patients and managing queues.
-                      </p>
-                    </div>
-                    <button
-                      onClick={() => {
-                        setProfileName(`${firstName} ${lastName}`.trim());
-                        setShowDoctorRegister(true);
-                        setActiveTab("professional");
-                      }}
-                      className="px-4 py-2 rounded-xl border border-primary text-primary hover:bg-primary/5 text-xs font-semibold shrink-0 transition-colors"
-                    >
-                      🏥 Register as Doctor
-                    </button>
-                  </div>
-                )}
+                
               </div>
             ) : (
               // ── DOCTOR PROFESSIONAL PROFILE FORM ───────────────────────────

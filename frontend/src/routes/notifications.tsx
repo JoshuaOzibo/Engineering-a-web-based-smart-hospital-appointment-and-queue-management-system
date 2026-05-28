@@ -38,7 +38,7 @@ function NotificationsPage() {
   // Build dynamic notification items from real appointments
   const liveItems = [
     // Upcoming appointment reminders
-    ...upcoming.slice(0, 3).map((a) => ({
+    ...upcoming.map((a) => ({
       icon: Calendar,
       tone: "primary",
       title: `Upcoming appointment with Dr. ${a.docFirstName}`,
@@ -46,7 +46,7 @@ function NotificationsPage() {
       when: "Pending confirmation",
     })),
     // Approved appointments
-    ...approved.slice(0, 2).map((a) => ({
+    ...approved.map((a) => ({
       icon: CheckCircle2,
       tone: "success",
       title: `Appointment confirmed — Dr. ${a.docFirstName}`,
@@ -55,15 +55,7 @@ function NotificationsPage() {
     })),
   ];
 
-  // Static system notifications (no backend for these yet)
-  const systemItems = [
-    { icon: Clock,         tone: "warning",     title: "Slight delay possible",         desc: "Queue wait times are slightly elevated. Allow extra time for your visit.", when: "Today" },
-    { icon: MessageSquare, tone: "muted",        title: "Lab results policy update",      desc: "Lab results will now be available within 48 hours of testing.", when: "Yesterday" },
-    { icon: AlertCircle,   tone: "destructive",  title: "Action needed",                 desc: "Please confirm your insurance details before your next visit.", when: "2 days ago" },
-    { icon: Bell,          tone: "info",         title: "New: Book from the mobile site", desc: "Mediqueue is now fully mobile-responsive. Book from your phone, anytime.", when: "3 days ago" },
-  ];
-
-  const allItems = [...liveItems, ...systemItems];
+  const allItems = liveItems;
 
   return (
     <AppLayout title="Notifications" subtitle="Reminders, appointment updates and messages from your care team.">

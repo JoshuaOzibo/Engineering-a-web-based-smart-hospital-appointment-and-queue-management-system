@@ -49,8 +49,8 @@ export function AppLayout({ children, title, subtitle, actions }: { children: Re
 
   return (
     <div className="min-h-screen flex w-full bg-surface">
-      <aside className="hidden lg:flex w-64 shrink-0 flex-col border-r border-border bg-sidebar">
-        <Link to="/" className="flex items-center gap-2 px-6 h-16 border-b border-sidebar-border">
+      <aside className="hidden lg:flex w-64 shrink-0 flex-col border-r border-border bg-sidebar h-screen sticky top-0 overflow-hidden">
+        <Link to="/" className="flex items-center gap-2 px-6 h-16 border-b border-sidebar-border shrink-0">
           <div className="size-9 rounded-xl bg-primary text-primary-foreground grid place-items-center">
             <Hospital className="size-5" />
           </div>
@@ -59,7 +59,7 @@ export function AppLayout({ children, title, subtitle, actions }: { children: Re
             <div className="text-[11px] text-muted-foreground">St. Helena Medical Center</div>
           </div>
         </Link>
-        <nav className="flex-1 px-3 py-5 space-y-6 overflow-y-auto">
+        <nav className="flex-1 px-3 py-5 space-y-6">
           {groups.map((g) => (
             <div key={g}>
               <div className="px-3 mb-2 text-[11px] font-medium uppercase tracking-wider text-muted-foreground">{g}</div>
@@ -88,35 +88,40 @@ export function AppLayout({ children, title, subtitle, actions }: { children: Re
           ))}
         </nav>
 
-        {/* User card */}
-        <div className="m-3 rounded-xl border border-sidebar-border bg-card p-4">
+        {/* Pinned Sign Out / Auth at the bottom of the sidebar */}
+        <div className="border-t border-sidebar-border p-4 shrink-0 bg-sidebar">
           {isAuthenticated && user ? (
-            <div className="flex items-center gap-3">
-              <div className="size-9 rounded-full bg-primary text-primary-foreground grid place-items-center text-sm font-semibold">
-                {initials}
-              </div>
-              <div className="leading-tight flex-1 min-w-0">
-                <div className="text-sm font-medium text-foreground truncate">{user.name} {user.last_name}</div>
-                <div className="text-xs text-muted-foreground truncate">{roleLabel} · {user.email}</div>
+            <div className="space-y-3">
+              <div className="flex items-center gap-3">
+                <div className="size-9 rounded-full bg-primary/10 text-primary grid place-items-center text-sm font-bold shrink-0">
+                  {initials}
+                </div>
+                <div className="leading-tight flex-1 min-w-0">
+                  <div className="text-sm font-medium text-foreground truncate">{user.name} {user.last_name}</div>
+                  <div className="text-[11px] text-muted-foreground truncate">{roleLabel}</div>
+                </div>
               </div>
               <button
                 onClick={logout}
-                title="Sign out"
-                className="size-8 grid place-items-center rounded-lg hover:bg-muted text-muted-foreground"
+                className="w-full h-10 rounded-xl border border-border bg-card hover:bg-muted text-muted-foreground hover:text-destructive flex items-center justify-center gap-2 text-xs font-semibold transition-colors shadow-soft"
               >
                 <LogOut className="size-4" />
+                <span>Sign Out</span>
               </button>
             </div>
           ) : (
-            <Link to="/login" className="flex items-center gap-3 text-sm font-medium text-primary hover:underline">
+            <Link
+              to="/login"
+              className="w-full h-10 rounded-xl bg-primary hover:bg-primary-hover text-primary-foreground flex items-center justify-center gap-2 text-xs font-semibold transition-colors shadow-md"
+            >
               <LogIn className="size-4" />
-              Sign in to your account
+              <span>Sign In to Account</span>
             </Link>
           )}
         </div>
       </aside>
 
-      <div className="flex-1 flex flex-col min-w-0">
+      <div className="flex-1 flex flex-col min-w-0 pb-16 lg:pb-0">
         <header className="h-16 border-b border-border bg-card flex items-center gap-4 px-6">
           <div className="flex-1 max-w-xl relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
@@ -127,7 +132,9 @@ export function AppLayout({ children, title, subtitle, actions }: { children: Re
           </div>
           <Link to="/notifications" className="relative size-10 grid place-items-center rounded-lg hover:bg-muted">
             <Bell className="size-4 text-foreground" />
-            <span className="absolute top-2 right-2 size-2 rounded-full bg-destructive" />
+            {filteredNav.some(n => n.to === "/notifications") && (
+              <span className="absolute top-2 right-2 size-2 rounded-full bg-destructive" />
+            )}
           </Link>
           <div className="hidden md:flex items-center gap-2 text-xs text-muted-foreground">
             <Users className="size-4" />
@@ -148,6 +155,43 @@ export function AppLayout({ children, title, subtitle, actions }: { children: Re
           </div>
         </main>
       </div>
+
+      {/* Mobile Bottom Navigation Bar */}
+      <nav className="lg:hidden fixed bottom-0 left-0 right-0 h-16 bg-sidebar border-t border-sidebar-border flex items-center justify-around px-2 z-50 shadow-lg">
+        {filteredNav.map((item) => {
+          const active = pathname === item.to || pathname.startsWith(item.to + "/");
+          return (
+            <Link
+              key={item.to}
+              to={item.to}
+              className={cn(
+                "flex flex-col items-center justify-center gap-1 text-[10px] font-semibold transition-colors",
+                active ? "text-primary" : "text-muted-foreground hover:text-foreground"
+              )}
+            >
+              <item.icon className="size-5" />
+              <span>{item.label.split(" ")[0]}</span>
+            </Link>
+          );
+        })}
+        {isAuthenticated ? (
+          <button
+            onClick={logout}
+            className="flex flex-col items-center justify-center gap-1 text-[10px] font-semibold text-muted-foreground hover:text-destructive"
+          >
+            <LogOut className="size-5" />
+            <span>Sign Out</span>
+          </button>
+        ) : (
+          <Link
+            to="/login"
+            className="flex flex-col items-center justify-center gap-1 text-[10px] font-semibold text-primary"
+          >
+            <LogIn className="size-5" />
+            <span>Sign In</span>
+          </Link>
+        )}
+      </nav>
     </div>
   );
 }
