@@ -126,9 +126,9 @@ function BookPage() {
     staleTime: 1000 * 60 * 2,
   });
 
-  // All doctors from API
+  // All doctors from API — filter to only approved & available doctors
   const allDoctors = useMemo(
-    () => (doctorData?.doctor ?? []),
+    () => (doctorData?.doctor ?? []).filter((d) => d.status && d.isAvailable),
     [doctorData]
   );
 

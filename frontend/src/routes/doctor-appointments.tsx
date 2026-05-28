@@ -133,7 +133,7 @@ function DoctorAppointmentsPage() {
 
   return (
     <AppLayout
-      title={`Hello, Dr. ${matchedDoctor.doctorName}`}
+      title={`Hello, ${matchedDoctor.doctorName}`}
       subtitle="Manage your appointment schedule, search patient records, and filter by date."
       actions={
         <button

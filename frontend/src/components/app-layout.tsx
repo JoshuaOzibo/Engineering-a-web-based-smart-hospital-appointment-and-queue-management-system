@@ -123,7 +123,7 @@ export function AppLayout({ children, title, subtitle, actions }: { children: Re
       </aside>
 
       <div className="flex-1 flex flex-col min-w-0 pb-16 lg:pb-0">
-        <header className="h-16 border-b border-border bg-card flex items-center gap-4 px-6">
+        <header className="h-16 border-b border-border bg-card flex items-center justify-between gap-4 px-6">
           <div className="flex-1 max-w-xl relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
             <input
@@ -131,15 +131,17 @@ export function AppLayout({ children, title, subtitle, actions }: { children: Re
               className="w-full h-10 rounded-lg border border-input bg-surface pl-9 pr-3 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40 focus-visible:border-ring"
             />
           </div>
-          <Link to="/notifications" className="relative size-10 grid place-items-center rounded-lg hover:bg-muted">
-            <Bell className="size-4 text-foreground" />
-            {filteredNav.some(n => n.to === "/notifications") && (
-              <span className="absolute top-2 right-2 size-2 rounded-full bg-destructive" />
-            )}
-          </Link>
-          <div className="hidden md:flex items-center gap-2 text-xs text-muted-foreground">
-            <Users className="size-4" />
-            <span>4 staff online</span>
+          <div className="flex items-center justify-end md:justify-between gap-4 w-auto md:w-48 shrink-0">
+            <Link to="/notifications" className="relative size-10 grid place-items-center rounded-lg hover:bg-muted">
+              <Bell className="size-4 text-foreground" />
+              {filteredNav.some(n => n.to === "/notifications") && (
+                <span className="absolute top-2 right-2 size-2 rounded-full bg-destructive" />
+              )}
+            </Link>
+            <div className="hidden md:flex items-center gap-2 text-xs text-muted-foreground whitespace-nowrap">
+              <Users className="size-4" />
+              <span>4 staff online</span>
+            </div>
           </div>
         </header>
 

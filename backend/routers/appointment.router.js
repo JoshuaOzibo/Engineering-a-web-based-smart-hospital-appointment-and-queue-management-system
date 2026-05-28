@@ -4,6 +4,7 @@ const { DoctorModel } = require("../models/doctor.model");
 const { UserModel } = require("../models/user.model");
 require("dotenv").config();
 const nodemailer = require("nodemailer");
+const logger = require("../utils/logger");
 
 const appointmentRouter = require("express").Router();
 
@@ -48,24 +49,30 @@ appointmentRouter.get("/allApp", authenticate, async (req, res) => {
   let id = req.body.userID;
   try {
     const appointments = await AppointmentModel.find({ patientId: id });
+    logger.success(`Retrieved ${appointments.length} appointments for patient: ${id}`);
     res.status(200).json({
       message: "All appointments retrieved successfully",
       appointments,
     });
   } catch (error) {
+    logger.error(`Error retrieving appointments for patient ${id}: ${error.message}`);
     res.status(500).send({ msg: "Error retrieving appointments", error: error.message });
   }
 });
 
 // GET single appointment by ID (patient must own it)
 appointmentRouter.get("/getApp/:appointmentId", authenticate, async (req, res) => {
+  const { appointmentId } = req.params;
   try {
-    const appointment = await AppointmentModel.findById(req.params.appointmentId);
+    const appointment = await AppointmentModel.findById(appointmentId);
     if (!appointment) {
+      logger.warn(`Appointment not found: ${appointmentId}`);
       return res.status(404).json({ message: "Appointment not found" });
     }
+    logger.success(`Retrieved appointment details for: ${appointmentId}`);
     res.status(200).json({ message: "Appointment details", appointment });
   } catch (error) {
+    logger.error(`Error retrieving appointment ${appointmentId}: ${error.message}`);
     res.status(500).send({ msg: "Error retrieving appointment", error: error.message });
   }
 });
@@ -77,19 +84,26 @@ appointmentRouter.post("/checkSlot/:doctorId", async (req, res) => {
   let doctorId = req.params.doctorId;
 
   if (!date || !slotTime) {
+    logger.warn(`CheckSlot request missing parameters for doctor ${doctorId}`);
     return res.status(400).send({ msg: "date and slotTime are required" });
   }
 
   try {
     const doctor = await DoctorModel.findById(doctorId);
-    if (!doctor) return res.status(404).send({ msg: "Doctor does not exist" });
+    if (!doctor) {
+      logger.warn(`CheckSlot: Doctor ${doctorId} not found`);
+      return res.status(404).send({ msg: "Doctor does not exist" });
+    }
     if (!doctor.isAvailable) {
+      logger.info(`CheckSlot: Doctor ${doctor.doctorName} is unavailable`);
       return res.send({ available: false, msg: `${doctor.doctorName} is not available currently` });
     }
 
     const available = isSlotAvailable(doctor, date, slotTime);
+    logger.info(`Slot check for Dr. ${doctor.doctorName} on ${date} ${slotTime}: ${available ? "Available" : "Taken"}`);
     res.send({ available, msg: available ? "Slot is available" : "Slot is already taken" });
   } catch (error) {
+    logger.error(`Error checking slot for doctor ${doctorId}: ${error.message}`);
     res.status(500).send({ msg: "Error checking slot", error: error.message });
   }
 });
@@ -106,15 +120,15 @@ appointmentRouter.post("/create/:doctorId", authenticate, async (req, res) => {
     const patient = await UserModel.findById(patientId);
 
     if (!doctor) {
-      console.warn(`[BOOKING] ❌ Doctor not found: ${doctorId}`);
+      logger.error(`Booking aborted: Doctor ${doctorId} not found`);
       return res.status(404).send({ msg: "Doctor does not exist" });
     }
     if (!patient) {
-      console.warn(`[BOOKING] ❌ Patient not found: ${patientId}`);
+      logger.error(`Booking aborted: Patient ${patientId} not found`);
       return res.status(404).send({ msg: "Patient does not exist" });
     }
     if (!doctor.isAvailable) {
-      console.warn(`[BOOKING] ❌ Doctor unavailable: ${doctor.doctorName}`);
+      logger.warn(`Booking aborted: Doctor ${doctor.doctorName} is unavailable`);
       return res.status(400).send({ msg: `${doctor.doctorName} is currently unavailable` });
     }
 
@@ -124,11 +138,12 @@ appointmentRouter.post("/create/:doctorId", authenticate, async (req, res) => {
     if (date && slotTime) {
       const available = isSlotAvailable(doctor, date, slotTime);
       if (!available) {
-        console.warn(`[BOOKING] ❌ Slot taken or unavailable: Dr. ${doctor.doctorName} - Date: ${date} - Slot: ${slotTime}`);
+        logger.warn(`Booking conflict: Slot ${date} ${slotTime} taken for Dr. ${doctor.doctorName}`);
         return res.status(409).send({ msg: "This slot is no longer available. Please choose another." });
       }
       // Remove the slot so no one else can book it
       await removeSlot(doctor, date, slotTime);
+      logger.info(`Removed slot ${date} ${slotTime} for Dr. ${doctor.doctorName}`);
     }
 
     const appointment = new AppointmentModel({
@@ -144,12 +159,14 @@ appointmentRouter.post("/create/:doctorId", authenticate, async (req, res) => {
     });
 
     await appointment.save();
+    logger.success(`Appointment created successfully: ID ${appointment._id} for patient ${patient.first_name} with Dr. ${doctor.doctorName}`);
 
-    // Send confirmation email
+    // Send confirmation email and CC doctor
     const transporter = createTransporter();
     const mailOptions = {
       from: process.env.GMAIL_USER,
       to: patientEmail,
+      cc: doctor.email,
       subject: "Mediqueue — Appointment Confirmed",
       html: `
         <!DOCTYPE html>
@@ -185,15 +202,16 @@ appointmentRouter.post("/create/:doctorId", authenticate, async (req, res) => {
     transporter
       .sendMail(mailOptions)
       .then(() => {
+        logger.success(`Confirmation email sent to ${patientEmail} (CC'd ${doctor.email})`);
         res.status(201).json({ message: "Appointment created. Check your email for confirmation.", status: true });
       })
       .catch((err) => {
-        console.error("Mail error:", err);
+        logger.error(`Confirmation email delivery failed: ${err.message}`);
         // Appointment is already saved — still return success
         res.status(201).json({ message: "Appointment created (email notification failed).", status: true });
       });
   } catch (error) {
-    console.error("Create appointment error:", error);
+    logger.error(`Error creating appointment with doctor ${doctorId}: ${error.message}`);
     res.status(500).send({ msg: "Error creating appointment", error: error.message });
   }
 });
@@ -205,16 +223,22 @@ appointmentRouter.post("/deleteSlot/:doctorId", async (req, res) => {
   let doctorId = req.params.doctorId;
 
   if (!date || !slotTime) {
+    logger.warn(`DeleteSlot request missing parameters for doctor ${doctorId}`);
     return res.status(400).send({ msg: "date and slotTime are required" });
   }
 
   try {
     const doctor = await DoctorModel.findById(doctorId);
-    if (!doctor) return res.status(404).send({ msg: "Doctor not found" });
+    if (!doctor) {
+      logger.warn(`DeleteSlot: Doctor ${doctorId} not found`);
+      return res.status(404).send({ msg: "Doctor not found" });
+    }
 
     await removeSlot(doctor, date, slotTime);
+    logger.success(`Successfully removed slot ${date} ${slotTime} for Dr. ${doctor.doctorName}`);
     res.send({ msg: "Slot removed successfully" });
   } catch (error) {
+    logger.error(`Error removing slot for doctor ${doctorId}: ${error.message}`);
     res.status(500).send({ msg: "Error removing slot", error: error.message });
   }
 });
@@ -222,17 +246,21 @@ appointmentRouter.post("/deleteSlot/:doctorId", async (req, res) => {
 // DELETE cancel appointment (patient — must own it)
 appointmentRouter.delete("/cancel/:appointmentId", authenticate, async (req, res) => {
   let patientId = req.body.userID;
+  const { appointmentId } = req.params;
   try {
     const appointment = await AppointmentModel.findOne({
       patientId,
-      _id: req.params.appointmentId,
+      _id: appointmentId,
     });
     if (!appointment) {
+      logger.warn(`Cancel failed: Appointment ${appointmentId} not found or patient mismatch for: ${patientId}`);
       return res.status(404).json({ message: "Appointment not found" });
     }
-    await AppointmentModel.findByIdAndDelete(req.params.appointmentId);
+    await AppointmentModel.findByIdAndDelete(appointmentId);
+    logger.success(`Appointment ${appointmentId} successfully cancelled by patient ${patientId}`);
     res.status(200).json({ message: "Appointment cancelled successfully" });
   } catch (error) {
+    logger.error(`Error cancelling appointment ${appointmentId}: ${error.message}`);
     res.status(500).send({ msg: "Error cancelling appointment", error: error.message });
   }
 });
@@ -240,20 +268,24 @@ appointmentRouter.delete("/cancel/:appointmentId", authenticate, async (req, res
 // PATCH reschedule appointment (patient — must own it)
 appointmentRouter.patch("/reschedule/:appointmentId", authenticate, async (req, res) => {
   const patientId = req.body.userID;
+  const { appointmentId } = req.params;
   try {
     const appointment = await AppointmentModel.findOne({
       patientId,
-      _id: req.params.appointmentId,
+      _id: appointmentId,
     });
     if (!appointment) {
+      logger.warn(`Reschedule failed: Appointment ${appointmentId} not found or patient mismatch for: ${patientId}`);
       return res.status(404).json({ message: "Appointment not found" });
     }
     const { ageOfPatient, gender, address, problemDescription, appointmentDate } = req.body;
-    await AppointmentModel.findByIdAndUpdate(req.params.appointmentId, {
+    await AppointmentModel.findByIdAndUpdate(appointmentId, {
       ageOfPatient, gender, address, problemDescription, appointmentDate,
     });
+    logger.success(`Appointment ${appointmentId} successfully rescheduled to ${appointmentDate} by patient ${patientId}`);
     res.status(200).json({ message: "Appointment updated successfully" });
   } catch (error) {
+    logger.error(`Error rescheduling appointment ${appointmentId}: ${error.message}`);
     res.status(500).send({ msg: error.message });
   }
 });
@@ -270,17 +302,24 @@ appointmentRouter.get("/doctor/:doctorId", authenticate, async (req, res) => {
     if (!isAdmin) {
       // If not admin, verify requester is the doctor themselves
       const doctor = await DoctorModel.findById(doctorId);
-      if (!doctor || doctor.email.toLowerCase() !== userEmail.toLowerCase()) {
+      if (!doctor) {
+        logger.warn(`Access denied to doctor profile: Doctor ID ${doctorId} not found`);
+        return res.status(403).json({ msg: "Access denied. You can only view your own appointments." });
+      }
+      if (doctor.email.toLowerCase() !== userEmail.toLowerCase()) {
+        logger.warn(`Access denied: User ${userEmail} attempted to access schedule for doctor ${doctor.email}`);
         return res.status(403).json({ msg: "Access denied. You can only view your own appointments." });
       }
     }
 
     const appointments = await AppointmentModel.find({ doctorId });
+    logger.success(`Retrieved ${appointments.length} appointments for doctor ID: ${doctorId} (Requested by: ${userEmail})`);
     res.status(200).json({
       message: "Doctor appointments retrieved successfully",
       appointments,
     });
   } catch (error) {
+    logger.error(`Error retrieving appointments for doctor ID ${doctorId}: ${error.message}`);
     res.status(500).send({ msg: "Error retrieving doctor appointments", error: error.message });
   }
 });
@@ -291,8 +330,10 @@ appointmentRouter.get("/doctor/:doctorId", authenticate, async (req, res) => {
 appointmentRouter.get("/all", async (req, res) => {
   try {
     const appointments = await AppointmentModel.find();
+    logger.success(`Admin retrieved all ${appointments.length} appointments`);
     res.status(200).json({ message: "All appointments retrieved", appointments });
   } catch (error) {
+    logger.error(`Admin error retrieving all appointments: ${error.message}`);
     res.status(500).send({ msg: "Error retrieving all appointments", error: error.message });
   }
 });
@@ -301,32 +342,46 @@ appointmentRouter.get("/all", async (req, res) => {
 appointmentRouter.get("/allPending", async (req, res) => {
   try {
     const appointments = await AppointmentModel.find({ status: false });
+    logger.success(`Admin retrieved all pending (${appointments.length}) appointments`);
     res.status(200).json({ message: "Pending appointments", appointments });
   } catch (error) {
+    logger.error(`Admin error retrieving pending appointments: ${error.message}`);
     res.status(500).send({ msg: "Error retrieving pending appointments", error: error.message });
   }
 });
 
 // DELETE reject appointment (admin)
 appointmentRouter.delete("/reject/:appointmentId", async (req, res) => {
+  const { appointmentId } = req.params;
   try {
-    const appointment = await AppointmentModel.findById(req.params.appointmentId);
-    if (!appointment) return res.status(404).json({ message: "Appointment not found" });
-    await AppointmentModel.findByIdAndDelete(req.params.appointmentId);
+    const appointment = await AppointmentModel.findById(appointmentId);
+    if (!appointment) {
+      logger.warn(`Admin reject failed: Appointment ${appointmentId} not found`);
+      return res.status(404).json({ message: "Appointment not found" });
+    }
+    await AppointmentModel.findByIdAndDelete(appointmentId);
+    logger.success(`Admin successfully rejected and removed appointment: ${appointmentId}`);
     res.status(200).json({ message: "Appointment rejected and removed" });
   } catch (error) {
+    logger.error(`Admin error rejecting appointment ${appointmentId}: ${error.message}`);
     res.status(500).send({ msg: "Error rejecting appointment", error: error.message });
   }
 });
 
 // PATCH approve appointment (admin)
 appointmentRouter.patch("/approve/:appointmentId", async (req, res) => {
+  const { appointmentId } = req.params;
   try {
-    const appointment = await AppointmentModel.findById(req.params.appointmentId);
-    if (!appointment) return res.status(404).json({ message: "Appointment not found" });
-    await AppointmentModel.findByIdAndUpdate(req.params.appointmentId, { status: true });
+    const appointment = await AppointmentModel.findById(appointmentId);
+    if (!appointment) {
+      logger.warn(`Admin approve failed: Appointment ${appointmentId} not found`);
+      return res.status(404).json({ message: "Appointment not found" });
+    }
+    await AppointmentModel.findByIdAndUpdate(appointmentId, { status: true });
+    logger.success(`Admin successfully approved appointment: ${appointmentId}`);
     res.status(200).json({ message: "Appointment approved" });
   } catch (error) {
+    logger.error(`Admin error approving appointment ${appointmentId}: ${error.message}`);
     res.status(500).send({ msg: "Error approving appointment", error: error.message });
   }
 });

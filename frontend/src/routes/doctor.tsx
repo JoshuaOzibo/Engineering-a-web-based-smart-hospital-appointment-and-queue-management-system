@@ -162,53 +162,14 @@ function DoctorPage() {
   });
 
   return (
-    <AppLayout title="Doctor Console" subtitle="Select a doctor to view their schedule and manage availability.">
-
-      {/* Doctor selector */}
-      <div className="mb-6 flex flex-wrap items-center gap-3">
-        {drLoading ? (
-          <div className="h-11 w-64 rounded-xl bg-muted animate-pulse" />
-        ) : doctors.length === 0 ? (
-          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <WifiOff className="size-4" /> No approved doctors found in the database.
-          </div>
-                ) : loggedInDoctor ? (
-          <div className="flex items-center gap-2 h-11 px-4 rounded-xl bg-primary/10 border border-primary/20 text-primary text-sm font-semibold">
-            <Stethoscope className="size-4" />
-            <span>Console: Dr. {loggedInDoctor.doctorName}</span>
-          </div>
-        ) : (
-          <div className="relative">
-            <Stethoscope className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
-            <select
-              value={selectedDoctorId}
-              onChange={(e) => { setSelectedDoctorId(e.target.value); setSelectedSlots([]); }}
-              className="h-11 pl-10 pr-8 rounded-xl border border-input bg-card text-sm focus:outline-none focus:ring-2 focus:ring-ring/40 min-w-[260px]"
-            >
-              <option value="">— Select a doctor —</option>
-              {doctors.map((d) => (
-                <option key={d._id} value={d._id}>{d.doctorName} ({d.qualifications})</option>
-              ))}
-            </select>
-          </div>
-        )}
-        {doctor && (
-          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <Star className="size-3.5 text-warning fill-current" />
-            <span>{doctor.rating > 0 ? doctor.rating.toFixed(1) : "Unrated"}</span>
-            <span>·</span>
-            <span>{doctor.experience} yrs exp.</span>
-            <span>·</span>
-            <span className={cn("text-xs px-2 py-0.5 rounded-full font-medium",
-              doctor.isAvailable ? "bg-success/15 text-success" : "bg-muted text-muted-foreground")}>
-              {doctor.isAvailable ? "Available" : "Unavailable"}
-            </span>
-          </div>
-        )}
-      </div>
-
+    <AppLayout
+      title={loggedInDoctor ? `Dr. ${loggedInDoctor.doctorName}` : "Doctor Console"}
+      subtitle={loggedInDoctor ? `${loggedInDoctor.qualifications} · ${loggedInDoctor.city}` : "Manage your queue and availability."}
+    >
       {!selectedDoctorId ? (
-        <EmptyState />
+        <div className="flex items-center justify-center py-32">
+          <Loader2 className="size-8 animate-spin text-primary" />
+        </div>
       ) : (
         <div className="grid gap-6 lg:grid-cols-3">
 
@@ -342,7 +303,7 @@ function DoctorPage() {
             {/* Throughput chart */}
             <div className="rounded-2xl border border-border bg-card p-5 shadow-soft">
               <div className="text-sm font-semibold inline-flex items-center gap-2 mb-4">
-                <Activity className="size-4 text-primary" /> Patients seen — today
+                <Activity className="size-4 text-primary" /> Patients seen today
               </div>
               <div className="h-36">
                 <ResponsiveContainer width="100%" height="100%">
