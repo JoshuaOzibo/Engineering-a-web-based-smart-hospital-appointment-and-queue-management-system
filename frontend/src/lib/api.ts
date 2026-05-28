@@ -51,6 +51,13 @@ async function apiFetch<T = unknown>(
   }
 
   if (!res.ok) {
+    if (res.status === 401) {
+      localStorage.removeItem("mq_token");
+      localStorage.removeItem("mq_user");
+      if (typeof window !== "undefined") {
+        window.location.href = "/login";
+      }
+    }
     const msg =
       (data as { msg?: string; message?: string })?.msg ??
       (data as { msg?: string; message?: string })?.message ??

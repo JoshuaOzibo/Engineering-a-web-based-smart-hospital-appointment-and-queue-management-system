@@ -156,12 +156,18 @@ function BookPage() {
     [allDoctors, specialtyFilter, cityFilter, query]
   );
 
-  // Available time slots for the selected doctor on the selected date
-  const availableSlots = useMemo(() => {
-    if (!doctor?.slots) return [];
-    const raw = doctor.slots[date];
+const DEFAULT_SLOTS = ["09:00", "10:00", "11:00", "12:00", "14:00", "15:00", "16:00"];
+
+// Available time slots for the selected doctor on the selected date
+const availableSlots = useMemo(() => {
+  if (!doctor) return [];
+  const slotsObj = doctor.slots || {};
+  const raw = slotsObj[date];
+  if (raw !== undefined) {
     return Array.isArray(raw) ? raw : [];
-  }, [doctor, date]);
+  }
+  return DEFAULT_SLOTS;
+}, [doctor, date]);
 
   // ── Booking mutation ────────────────────────────────────────────────────────
   const bookMutation = useMutation({
@@ -304,30 +310,34 @@ function BookPage() {
         <div className="grid lg:grid-cols-3 gap-6">
           <div className="lg:col-span-2 grid gap-6">
             {/* Date picker */}
-            <Card title="Choose a date">
-              <div className="flex gap-2 overflow-x-auto pb-1">
+            <Card title="Choose an Appointment Date">
+              <div className="grid grid-cols-3 sm:grid-cols-7 gap-2">
                 {nextDays(14).map((d) => {
                   const slotsOnDay = doctor.slots?.[d.iso];
-                  const hasFreeSlots = Array.isArray(slotsOnDay) && slotsOnDay.length > 0;
+                  // If slotsOnDay is not defined, we fall back to clinic default slots (which has slots)
+                  const hasFreeSlots = slotsOnDay === undefined || (Array.isArray(slotsOnDay) && slotsOnDay.length > 0);
+                  
                   return (
                     <button
                       key={d.iso}
                       onClick={() => { setDate(d.iso); setSlot(""); }}
                       disabled={!hasFreeSlots}
                       className={cn(
-                        "min-w-[72px] rounded-xl border p-3 text-center transition-colors relative",
+                        "rounded-xl border p-2 text-center transition-all flex flex-col justify-between h-22 select-none",
                         date === d.iso
-                          ? "border-primary bg-primary/5"
+                          ? "border-primary bg-primary/5 ring-2 ring-primary/20 text-primary"
                           : hasFreeSlots
-                          ? "border-border bg-card hover:bg-muted"
-                          : "border-border bg-surface opacity-40 cursor-not-allowed"
+                          ? "border-border bg-card hover:bg-muted text-foreground"
+                          : "border-border bg-surface opacity-35 cursor-not-allowed"
                       )}
                     >
-                      <div className="text-[10px] uppercase tracking-widest text-muted-foreground">{d.dow}</div>
-                      <div className="text-lg font-semibold mt-1">{d.day}</div>
-                      <div className="text-[11px] text-muted-foreground">{d.mon}</div>
+                      <span className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground">{d.dow}</span>
+                      <span className="text-xl font-extrabold tracking-tight my-0.5">{d.day}</span>
+                      <span className="text-[9px] text-muted-foreground font-semibold">{d.mon}</span>
                       {hasFreeSlots && (
-                        <div className="mt-1 text-[10px] text-success font-medium">{slotsOnDay.length} slots</div>
+                        <span className="mt-1 text-[8px] text-success font-bold uppercase tracking-wide">
+                          {slotsOnDay ? `${slotsOnDay.length} slots` : "Available"}
+                        </span>
                       )}
                     </button>
                   );
@@ -336,26 +346,27 @@ function BookPage() {
             </Card>
 
             {/* Time slots */}
-            <Card title={availableSlots.length > 0 ? "Pick a time" : "No slots available on this date"}>
+            <Card title={availableSlots.length > 0 ? "Select consultation time slot" : "No slots available on this date"}>
               {availableSlots.length === 0 ? (
                 <div className="flex items-center gap-3 text-sm text-muted-foreground py-4">
                   <AlertCircle className="size-4 text-warning" />
-                  Select a date with available slots (highlighted in green above).
+                  Select a date with available slots.
                 </div>
               ) : (
-                <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-2">
+                <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-2">
                   {availableSlots.map((t) => (
                     <button
                       key={t}
                       onClick={() => setSlot(t)}
                       className={cn(
-                        "h-11 rounded-lg border text-sm font-medium transition-colors",
+                        "h-11 rounded-xl border text-sm font-semibold transition-all flex items-center justify-center gap-1.5 shadow-sm active:scale-95",
                         slot === t
-                          ? "border-primary bg-primary text-primary-foreground"
-                          : "border-border bg-card hover:bg-muted text-foreground"
+                          ? "border-primary bg-primary text-primary-foreground shadow-md scale-[1.02]"
+                          : "border-border bg-card hover:bg-muted text-foreground hover:scale-[1.01]"
                       )}
                     >
-                      {t}
+                      <Clock className="size-3.5 opacity-60" />
+                      <span>{t}</span>
                     </button>
                   ))}
                 </div>

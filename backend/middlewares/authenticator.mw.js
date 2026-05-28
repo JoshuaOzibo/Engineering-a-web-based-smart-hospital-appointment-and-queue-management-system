@@ -18,30 +18,33 @@ require("dotenv").config();
 
 const authenticate = async (req, res, next) => {
   const token = req.headers?.authorization;
-  console.log("From Middleware:",token);
+  console.log("From Middleware:", token);
   if (!token) {
-    return res.send({ msg: "Enter Token First" });
+    return res.status(401).send({ msg: "Enter Token First" });
   } else {
     try {
-      // const blacklistdata = await client.LRANGE("token", 0, -1);
-      // console.log(blacklistdata)
-      // if (blacklistdata.includes(token)) {
-      //   return res.send({ msg: "Token Blackilsted/Logout" });
-      // }
       const decoded = jwt.verify(token, process.env.key);
       if (decoded) {
         const userID = decoded.userID;
         const email = decoded.email;
-        console.log('Middleware Console',userID,email)
+        
+        // Prevent stale tokens of deleted users from accessing endpoints
+        const { UserModel } = require("../models/user.model");
+        const userExists = await UserModel.findById(userID);
+        if (!userExists) {
+          return res.status(401).send({ msg: "Session expired or user deleted. Please log in again." });
+        }
+
+        console.log('Middleware Console', userID, email);
         req.body.userID = userID;
         req.body.email = email;
 
         next();
       } else {
-        res.send({ msg: "Wrong Token" });
+        res.status(401).send({ msg: "Wrong Token" });
       }
     } catch (e) {
-      res.send({ msg: "Token Expired" });
+      res.status(401).send({ msg: "Token Expired" });
     }
   }
 };
