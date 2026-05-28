@@ -50,6 +50,13 @@ const appointmentSchema = mongoose.Schema({
   paymentStatus:{
     type:Boolean,
     default:false
+  },
+  rescheduledByDoctor: {
+    type: Boolean,
+    default: false
+  },
+  originalDate: {
+    type: String,
   }
 });
 

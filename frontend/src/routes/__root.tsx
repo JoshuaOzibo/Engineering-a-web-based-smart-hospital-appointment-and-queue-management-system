@@ -74,7 +74,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "Mediqueue — Smart Hospital Appointment & Queue Management" },
+      { title: "Mediqueue Smart Hospital Appointment & Queue Management" },
       { name: "description", content: "Book appointments, join the queue from home, and track your wait time in real time at St. Helena Medical Center." },
       { name: "author", content: "St. Helena Medical Center" },
       { property: "og:title", content: "Mediqueue" },

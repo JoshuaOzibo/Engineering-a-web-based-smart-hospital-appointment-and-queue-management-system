@@ -183,6 +183,8 @@ export type BackendAppointment = {
   appointmentDate?: string;
   createdAt: string;
   status: boolean;
+  rescheduledByDoctor?: boolean;
+  originalDate?: string;
 };
 
 export type CreateAppointmentBody = {
@@ -206,6 +208,8 @@ export const appointmentApi = {
     api.delete<{ message: string }>(`/appointment/cancel/${appointmentId}`),
   reschedule: (appointmentId: string, body: Partial<CreateAppointmentBody>) =>
     api.patch<{ message: string }>(`/appointment/reschedule/${appointmentId}`, body),
+  rescheduleByDoctor: (appointmentId: string, appointmentDate: string) =>
+    api.patch<{ message: string }>(`/appointment/doctor/reschedule/${appointmentId}`, { appointmentDate }),
   getDoctorAppointments: (doctorId: string) =>
     api.get<{ message: string; appointments: BackendAppointment[] }>(`/appointment/doctor/${doctorId}`),
   // Admin actions

@@ -72,19 +72,30 @@ function NotificationsPage() {
       ]
     : [
         // Patient's upcoming appointments
-        ...upcoming.map((a) => ({
-          icon: Calendar,
-          tone: "primary",
-          title: `Upcoming appointment with Dr. ${a.docFirstName}`,
-          desc: `${a.appointmentDate ? formatDate(a.appointmentDate) : "Date TBD"}${a.problemDescription ? ` · ${a.problemDescription}` : ""}`,
-          when: "Upcoming",
-        })),
+        ...upcoming.map((a) => {
+          if (a.rescheduledByDoctor) {
+            return {
+              icon: AlertCircle,
+              tone: "warning",
+              title: `Rescheduled appointment with Dr. ${a.docFirstName}`,
+              desc: `Dear Patient, your appointment with Dr. ${a.docFirstName} originally scheduled for ${a.originalDate ? formatDateTime(a.originalDate) : "TBD"} has been politely rescheduled to ${a.appointmentDate ? formatDateTime(a.appointmentDate) : "Date TBD"}. We apologize for any inconvenience caused and look forward to seeing you.`,
+              when: "Updated",
+            };
+          }
+          return {
+            icon: Calendar,
+            tone: "primary",
+            title: `Upcoming appointment with Dr. ${a.docFirstName}`,
+            desc: `${a.appointmentDate ? formatDateTime(a.appointmentDate) : "Date TBD"}${a.problemDescription ? ` · ${a.problemDescription}` : ""}`,
+            when: "Upcoming",
+          };
+        }),
         // Patient's completed visits
         ...approved.map((a) => ({
           icon: CheckCircle2,
           tone: "success",
           title: `Completed visit — Dr. ${a.docFirstName}`,
-          desc: `${a.appointmentDate ? formatDate(a.appointmentDate) : "Date TBD"} · Consultation completed successfully.`,
+          desc: `${a.appointmentDate ? formatDateTime(a.appointmentDate) : "Date TBD"} · Consultation completed successfully.`,
           when: "Completed",
         })),
       ];
@@ -217,4 +228,18 @@ function SummaryRow({ k, v, tone }: { k: string; v: number; tone: string }) {
 
 function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" });
+}
+
+function formatDateTime(iso: string) {
+  try {
+    const d = new Date(iso);
+    const dateStr = d.toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" });
+    if (iso.includes("T") || iso.includes(":") || (iso.length > 10)) {
+      const timeStr = d.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
+      return `${dateStr} at ${timeStr}`;
+    }
+    return dateStr;
+  } catch {
+    return iso;
+  }
 }

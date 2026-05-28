@@ -64,7 +64,7 @@ function AdminPage() {
         ))}
       </div>
 
-      {tab === "overview"     && <OverviewTab />}
+      {tab === "overview"     && <OverviewTab onViewAppointments={() => setTab("appointments")} />}
       {tab === "appointments" && <AppointmentsTab />}
       {tab === "doctors"      && <DoctorsTab />}
       {tab === "departments"  && <DepartmentsTab />}
@@ -154,7 +154,7 @@ function AdminLogin({ onSuccess }: { onSuccess: (email: string) => void }) {
 }
 
 // ── Overview Tab ──────────────────────────────────────────────────────────────
-function OverviewTab() {
+function OverviewTab({ onViewAppointments }: { onViewAppointments?: () => void }) {
   const { data, isLoading, refetch } = useQuery({
     queryKey: ["admin-dashboard"],
     queryFn: () => adminApi.getDashboard(),
@@ -164,7 +164,7 @@ function OverviewTab() {
   const kpis = [
     { k: "Registered patients", v: data?.usersRegistered?.length ?? 0, icon: Users, color: "bg-blue-500/10 text-blue-500" },
     { k: "Total appointments", v: data?.totalAppointments ?? 0, icon: CalendarCheck, color: "bg-primary/10 text-primary" },
-    { k: "Pending approval", v: data?.totalPendingAppointments ?? 0, icon: Clock, color: "bg-warning/20 text-warning-foreground" },
+    { k: "Upcoming appointments", v: data?.totalPendingAppointments ?? 0, icon: Clock, color: "bg-warning/20 text-warning-foreground" },
     { k: "Approved doctors", v: data?.docApproved?.length ?? 0, icon: Stethoscope, color: "bg-success/15 text-success" },
   ];
 
@@ -230,6 +230,54 @@ function OverviewTab() {
             </ResponsiveContainer>
           </div>
         </div>
+      </div>
+
+      {/* Upcoming Appointments Table */}
+      <div className="rounded-2xl border border-border bg-card p-5 shadow-soft">
+        <div className="text-sm font-semibold mb-4 flex items-center justify-between">
+          <span>Upcoming Appointments</span>
+          <span className="text-xs text-muted-foreground">{data?.appPending?.length ?? 0} awaiting approval</span>
+        </div>
+
+        {isLoading ? (
+          <div className="flex items-center justify-center py-8">
+            <Loader2 className="size-5 animate-spin text-primary" />
+          </div>
+        ) : !data?.appPending || data.appPending.length === 0 ? (
+          <div className="text-center py-8 text-sm text-muted-foreground">No upcoming appointments.</div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm text-left">
+              <thead className="text-xs text-muted-foreground bg-surface uppercase tracking-wider">
+                <tr>
+                  <th className="px-4 py-2 font-medium">Patient</th>
+                  <th className="px-4 py-2 font-medium">Doctor</th>
+                  <th className="px-4 py-2 font-medium">Date</th>
+                  <th className="px-4 py-2 font-medium">Reason</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border">
+                {data.appPending.slice(0, 5).map((a) => (
+                  <tr key={a._id} className="hover:bg-muted/10">
+                    <td className="px-4 py-2.5 font-medium">{a.patientFirstName}</td>
+                    <td className="px-4 py-2.5 text-muted-foreground">Dr. {a.docFirstName}</td>
+                    <td className="px-4 py-2.5 text-muted-foreground whitespace-nowrap">
+                      {a.appointmentDate ? new Date(a.appointmentDate).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" }) : "—"}
+                    </td>
+                    <td className="px-4 py-2.5 text-muted-foreground truncate max-w-[200px]">{a.problemDescription ?? "—"}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            {data.appPending.length > 5 && onViewAppointments && (
+              <div className="mt-3 text-right">
+                <button onClick={onViewAppointments} className="text-xs text-primary font-medium hover:underline">
+                  View all {data.appPending.length} appointments →
+                </button>
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Pending summary */}

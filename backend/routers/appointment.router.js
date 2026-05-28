@@ -167,7 +167,7 @@ appointmentRouter.post("/create/:doctorId", authenticate, async (req, res) => {
       from: process.env.GMAIL_USER,
       to: patientEmail,
       cc: doctor.email,
-      subject: "Mediqueue — Appointment Confirmed",
+      subject: "Mediqueue Appointment Confirmed",
       html: `
         <!DOCTYPE html>
         <html>
@@ -286,6 +286,56 @@ appointmentRouter.patch("/reschedule/:appointmentId", authenticate, async (req, 
     res.status(200).json({ message: "Appointment updated successfully" });
   } catch (error) {
     logger.error(`Error rescheduling appointment ${appointmentId}: ${error.message}`);
+    res.status(500).send({ msg: error.message });
+  }
+});
+
+// PATCH reschedule appointment by doctor (doctor/admin auth required)
+appointmentRouter.patch("/doctor/reschedule/:appointmentId", authenticate, async (req, res) => {
+  const userEmail = req.body.email; // Filled by authenticate middleware
+  const { appointmentId } = req.params;
+  const { appointmentDate } = req.body;
+
+  if (!appointmentDate) {
+    logger.warn(`Doctor reschedule failed: appointmentDate is required`);
+    return res.status(400).json({ msg: "appointmentDate is required" });
+  }
+
+  try {
+    const appointment = await AppointmentModel.findById(appointmentId);
+    if (!appointment) {
+      logger.warn(`Doctor reschedule failed: Appointment ${appointmentId} not found`);
+      return res.status(404).json({ message: "Appointment not found" });
+    }
+
+    // Verify requester is the doctor of this appointment or an admin
+    const { AdminModel } = require("../models/admin.model");
+    const isAdmin = await AdminModel.findOne({ email: userEmail });
+
+    if (!isAdmin) {
+      const doctor = await DoctorModel.findById(appointment.doctorId);
+      if (!doctor || doctor.email.toLowerCase() !== userEmail.toLowerCase()) {
+        logger.warn(`Access denied: User ${userEmail} attempted to reschedule appointment ${appointmentId} owned by doctor ${doctor?.email}`);
+        return res.status(403).json({ msg: "Access denied. You can only reschedule your own appointments." });
+      }
+    }
+
+    const previousDate = appointment.appointmentDate;
+    
+    // Save originalDate if not already set (so we know the very first date they booked)
+    const updateData = {
+      appointmentDate,
+      rescheduledByDoctor: true,
+    };
+    if (!appointment.originalDate) {
+      updateData.originalDate = previousDate;
+    }
+
+    await AppointmentModel.findByIdAndUpdate(appointmentId, updateData);
+    logger.success(`Appointment ${appointmentId} successfully rescheduled from ${previousDate} to ${appointmentDate} by doctor (User: ${userEmail})`);
+    res.status(200).json({ message: "Appointment rescheduled successfully" });
+  } catch (error) {
+    logger.error(`Error rescheduling appointment ${appointmentId} by doctor: ${error.message}`);
     res.status(500).send({ msg: error.message });
   }
 });

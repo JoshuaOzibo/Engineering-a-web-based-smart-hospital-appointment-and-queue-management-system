@@ -163,7 +163,7 @@ function DoctorPage() {
 
   return (
     <AppLayout
-      title={loggedInDoctor ? `Dr. ${loggedInDoctor.doctorName}` : "Doctor Console"}
+      title={loggedInDoctor ? ` ${loggedInDoctor.doctorName}` : "Doctor Console"}
       subtitle={loggedInDoctor ? `${loggedInDoctor.qualifications} · ${loggedInDoctor.city}` : "Manage your queue and availability."}
     >
       {!selectedDoctorId ? (
@@ -241,7 +241,7 @@ function DoctorPage() {
               <div className="rounded-2xl border border-border bg-card p-5 shadow-soft">
                 <div className="flex items-center justify-between mb-4">
                   <div className="text-sm font-semibold inline-flex items-center gap-2">
-                    <Users className="size-4 text-primary" /> Queue — {doctor?.departmentId ? `Dept ${doctor.departmentId}` : "—"}
+                    <Users className="size-4 text-primary" /> Queue {doctor?.departmentId ? `Dept ${doctor.departmentId}` : "—"}
                   </div>
                   <span className="inline-flex items-center gap-1 text-xs text-success font-medium">
                     <span className="size-1.5 rounded-full bg-success" /> Live

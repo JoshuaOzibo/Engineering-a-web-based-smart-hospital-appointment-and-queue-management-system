@@ -53,6 +53,9 @@ function DoctorAppointmentsPage() {
   const [searchQuery, setSearchQuery] = useState<string>("");
   const [statusFilter, setStatusFilter] = useState<"all" | "upcoming" | "completed">("all");
 
+  const [reschedulingApptId, setReschedulingApptId] = useState<string | null>(null);
+  const [newRescheduleDate, setNewRescheduleDate] = useState<string>("");
+
   const { data: apptData, isLoading: apptLoading, refetch, isRefetching } = useQuery({
     queryKey: ["doctor-appointments", selectedDoctorId],
     queryFn: () => appointmentApi.getDoctorAppointments(selectedDoctorId!),
@@ -110,6 +113,20 @@ function DoctorAppointmentsPage() {
     },
     onError: (err: Error) => {
       toast.error(err.message || "Failed to cancel appointment.");
+    },
+  });
+
+  // Reschedule mutation
+  const rescheduleMutation = useMutation({
+    mutationFn: ({ id, date }: { id: string; date: string }) => appointmentApi.rescheduleByDoctor(id, date),
+    onSuccess: () => {
+      toast.success("Appointment rescheduled successfully.");
+      setReschedulingApptId(null);
+      setNewRescheduleDate("");
+      queryClient.invalidateQueries({ queryKey: ["doctor-appointments", selectedDoctorId] });
+    },
+    onError: (err: Error) => {
+      toast.error(err.message || "Failed to reschedule appointment.");
     },
   });
 
@@ -299,51 +316,97 @@ function DoctorAppointmentsPage() {
                       <div className="text-sm font-medium text-foreground truncate">{appt.problemDescription || "—"}</div>
                     </td>
                     <td className="px-6 py-4">
-                      <span
-                        className={cn(
-                          "inline-flex items-center gap-1.5 text-[11px] px-2.5 py-0.5 rounded-full font-semibold",
-                          appt.status
-                            ? "bg-success/15 text-success"
-                            : "bg-primary/10 text-primary"
+                      <div className="flex flex-col gap-1 items-start">
+                        <span
+                          className={cn(
+                            "inline-flex items-center gap-1.5 text-[11px] px-2.5 py-0.5 rounded-full font-semibold",
+                            appt.status
+                              ? "bg-success/15 text-success"
+                              : "bg-primary/10 text-primary"
+                          )}
+                        >
+                          <span className={cn("size-1.5 rounded-full", appt.status ? "bg-success" : "bg-primary")} />
+                          {appt.status ? "Completed" : "Upcoming"}
+                        </span>
+                        {appt.rescheduledByDoctor && (
+                          <span className="text-[10px] font-semibold bg-warning/20 text-warning-foreground px-2 py-0.5 rounded-full">
+                            Rescheduled
+                          </span>
                         )}
-                      >
-                        <span className={cn("size-1.5 rounded-full", appt.status ? "bg-success" : "bg-primary")} />
-                        {appt.status ? "Completed" : "Upcoming"}
-                      </span>
+                      </div>
                     </td>
                     <td className="px-6 py-4 text-right">
-                      <div className="inline-flex items-center gap-2">
-                        {!appt.status && (
+                      {reschedulingApptId === appt._id ? (
+                        <div className="flex items-center gap-2 justify-end">
+                          <input
+                            type="datetime-local"
+                            value={newRescheduleDate}
+                            onChange={(e) => setNewRescheduleDate(e.target.value)}
+                            className="h-8 rounded-lg border border-input px-2 text-xs focus:outline-none focus:ring-1 focus:ring-primary"
+                          />
                           <button
-                            onClick={() => completeMutation.mutate(appt._id)}
-                            disabled={completeMutation.isPending}
-                            className="h-8 px-3 rounded-lg bg-success hover:bg-success-hover text-success-foreground text-xs font-semibold inline-flex items-center gap-1 shadow-soft transition-all"
+                            onClick={() => rescheduleMutation.mutate({ id: appt._id, date: newRescheduleDate })}
+                            disabled={rescheduleMutation.isPending}
+                            className="h-8 px-2.5 rounded-lg bg-primary hover:bg-primary/95 text-primary-foreground text-xs font-semibold inline-flex items-center gap-1"
                           >
-                            {completeMutation.isPending && completeMutation.variables === appt._id ? (
-                              <Loader2 className="size-3 animate-spin" />
-                            ) : (
-                              <Check className="size-3" />
-                            )}
-                            Complete
+                            {rescheduleMutation.isPending ? <Loader2 className="size-3 animate-spin" /> : "Save"}
                           </button>
-                        )}
-                        <button
-                          onClick={() => {
-                            if (window.confirm(`Are you sure you want to cancel this appointment with ${appt.patientFirstName}?`)) {
-                              cancelMutation.mutate(appt._id);
-                            }
-                          }}
-                          disabled={cancelMutation.isPending}
-                          className="h-8 w-8 rounded-lg border border-destructive/20 text-destructive hover:bg-destructive/5 inline-flex items-center justify-center transition-all"
-                          title="Cancel appointment"
-                        >
-                          {cancelMutation.isPending && cancelMutation.variables === appt._id ? (
-                            <Loader2 className="size-3.5 animate-spin" />
-                          ) : (
-                            <Trash2 className="size-3.5" />
+                          <button
+                            onClick={() => {
+                              setReschedulingApptId(null);
+                              setNewRescheduleDate("");
+                            }}
+                            className="h-8 px-2.5 rounded-lg border border-border hover:bg-muted text-xs font-medium"
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="inline-flex items-center gap-2">
+                          {!appt.status && (
+                            <>
+                              <button
+                                onClick={() => completeMutation.mutate(appt._id)}
+                                disabled={completeMutation.isPending}
+                                className="h-8 px-3 rounded-lg bg-success hover:bg-success-hover text-success-foreground text-xs font-semibold inline-flex items-center gap-1 shadow-soft transition-all"
+                              >
+                                {completeMutation.isPending && completeMutation.variables === appt._id ? (
+                                  <Loader2 className="size-3 animate-spin" />
+                                ) : (
+                                  <Check className="size-3" />
+                                )}
+                                Complete
+                              </button>
+                              <button
+                                onClick={() => {
+                                  setReschedulingApptId(appt._id);
+                                  setNewRescheduleDate(appt.appointmentDate ? appt.appointmentDate.slice(0, 16) : new Date().toISOString().slice(0, 16));
+                                }}
+                                className="h-8 px-3 rounded-lg border border-border hover:bg-muted text-foreground text-xs font-semibold inline-flex items-center gap-1 transition-all"
+                              >
+                                <Calendar className="size-3" />
+                                Reschedule
+                              </button>
+                            </>
                           )}
-                        </button>
-                      </div>
+                          <button
+                            onClick={() => {
+                              if (window.confirm(`Are you sure you want to cancel this appointment with ${appt.patientFirstName}?`)) {
+                                cancelMutation.mutate(appt._id);
+                              }
+                            }}
+                            disabled={cancelMutation.isPending}
+                            className="h-8 w-8 rounded-lg border border-destructive/20 text-destructive hover:bg-destructive/5 inline-flex items-center justify-center transition-all"
+                            title="Cancel appointment"
+                          >
+                            {cancelMutation.isPending && cancelMutation.variables === appt._id ? (
+                              <Loader2 className="size-3.5 animate-spin" />
+                            ) : (
+                              <Trash2 className="size-3.5" />
+                            )}
+                          </button>
+                        </div>
+                      )}
                     </td>
                   </tr>
                 ))}
