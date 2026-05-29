@@ -33,10 +33,16 @@ const todayPlus = (days: number) => {
 };
 
 const formatDate = (date: string) => new Date(date).toLocaleDateString("en-NG", { month: "short", day: "numeric", weekday: "short" });
-const isToday = (date: string | undefined): boolean =>
-  !!date && date.slice(0, 10) === new Date().toISOString().split("T")[0];
-
-const trend = Array.from({ length: 8 }, (_, i) => ({ h: `${8 + i}:00`, seen: 2 + Math.round(Math.sin(i / 2) * 2 + i / 2) }));
+const isToday = (date: string | undefined): boolean => {
+  if (!date) return false;
+  try {
+    const d = new Date(date);
+    const today = new Date();
+    return d.toDateString() === today.toDateString();
+  } catch {
+    return false;
+  }
+};
 
 // Default slot times a doctor can add
 const DEFAULT_SLOTS = ["08:00","08:30","09:00","09:30","10:00","10:30","11:00","11:30",
@@ -109,6 +115,36 @@ function DoctorPage() {
   );
   const todayAppts = myAppointments.filter((a) => isToday(a.appointmentDate));
   const upcomingAppts = myAppointments.filter((a) => !isToday(a.appointmentDate) && !a.status);
+
+  const completedToday = useMemo(() => {
+    return myAppointments.filter((a) => a.status && isToday(a.appointmentDate));
+  }, [myAppointments]);
+
+  const trendData = useMemo(() => {
+    if (completedToday.length === 0) return [];
+    
+    // Group completed appointments by hour (from 8am to 5pm by default, expanding if needed)
+    const hourMap: Record<number, number> = {};
+    for (let h = 8; h <= 17; h++) {
+      hourMap[h] = 0;
+    }
+    
+    completedToday.forEach((a) => {
+      if (a.appointmentDate) {
+        try {
+          const d = new Date(a.appointmentDate);
+          const hour = d.getHours();
+          hourMap[hour] = (hourMap[hour] || 0) + 1;
+        } catch {}
+      }
+    });
+
+    const hours = Object.keys(hourMap).map(Number).sort((a, b) => a - b);
+    return hours.map((h) => ({
+      h: `${String(h).padStart(2, "0")}:00`,
+      seen: hourMap[h]
+    }));
+  }, [completedToday]);
 
   // ── Add slots mutation ──────────────────────────────────────────────────────
   const addSlotsMutation = useMutation({
@@ -301,22 +337,24 @@ function DoctorPage() {
             )}
 
             {/* Throughput chart */}
-            <div className="rounded-2xl border border-border bg-card p-5 shadow-soft">
-              <div className="text-sm font-semibold inline-flex items-center gap-2 mb-4">
-                <Activity className="size-4 text-primary" /> Patients seen today
+            {trendData.length > 0 && (
+              <div className="rounded-2xl border border-border bg-card p-5 shadow-soft">
+                <div className="text-sm font-semibold inline-flex items-center gap-2 mb-4">
+                  <Activity className="size-4 text-primary" /> Patients seen today
+                </div>
+                <div className="h-36">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <LineChart data={trendData}>
+                      <CartesianGrid stroke="var(--color-border)" strokeDasharray="3 3" vertical={false} />
+                      <XAxis dataKey="h" stroke="var(--color-muted-foreground)" fontSize={10} tickLine={false} axisLine={false} />
+                      <YAxis stroke="var(--color-muted-foreground)" fontSize={10} tickLine={false} axisLine={false} width={20} />
+                      <Tooltip contentStyle={{ background: "var(--color-card)", border: "1px solid var(--color-border)", borderRadius: 12, fontSize: 12 }} />
+                      <Line type="monotone" dataKey="seen" stroke="var(--color-primary)" strokeWidth={2.5} dot={false} />
+                    </LineChart>
+                  </ResponsiveContainer>
+                </div>
               </div>
-              <div className="h-36">
-                <ResponsiveContainer width="100%" height="100%">
-                  <LineChart data={trend}>
-                    <CartesianGrid stroke="var(--color-border)" strokeDasharray="3 3" vertical={false} />
-                    <XAxis dataKey="h" stroke="var(--color-muted-foreground)" fontSize={10} tickLine={false} axisLine={false} />
-                    <YAxis stroke="var(--color-muted-foreground)" fontSize={10} tickLine={false} axisLine={false} width={20} />
-                    <Tooltip contentStyle={{ background: "var(--color-card)", border: "1px solid var(--color-border)", borderRadius: 12, fontSize: 12 }} />
-                    <Line type="monotone" dataKey="seen" stroke="var(--color-primary)" strokeWidth={2.5} dot={false} />
-                  </LineChart>
-                </ResponsiveContainer>
-              </div>
-            </div>
+            )}
 
             {/* Slot management */}
             <div className="rounded-2xl border border-border bg-card p-5 shadow-soft">
