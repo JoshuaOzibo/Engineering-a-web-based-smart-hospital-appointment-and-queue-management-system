@@ -250,6 +250,7 @@ export type QueueState = {
     patientId: string;
     patientName: string;
     status: "waiting" | "serving" | "done";
+    issuedAt?: string;
   }>;
 };
 

@@ -441,6 +441,9 @@ function QueueCard() {
   const { isAuthenticated, user } = useAuth();
   const qc = useQueryClient();
 
+  const [hoveredToken, setHoveredToken] = useState<number | null>(null);
+  const [clickedToken, setClickedToken] = useState<number | null>(null);
+
   const { data: myToken, isLoading } = useQuery({
     queryKey: ["my-queue-token"],
     queryFn: () => queueApi.getMyToken(),
@@ -527,11 +530,55 @@ function QueueCard() {
       {/* Progress bar — only when in queue */}
       {myToken && liveQueue && liveQueue.lastIssued > 0 && (
         <>
-          <div className="mt-6 h-2 rounded-full bg-muted overflow-hidden">
-            <div
-              className="h-full bg-primary rounded-full transition-all duration-700"
-              style={{ width: `${progress}%` }}
-            />
+          <div className="mt-6 h-4 rounded-full bg-muted overflow-visible flex relative select-none">
+            {liveQueue.tokens.map((token, idx) => {
+              const color = getSegmentColor(idx, liveQueue.tokens.length);
+              const isHovered = hoveredToken === token.tokenNumber;
+              const isClicked = clickedToken === token.tokenNumber;
+              
+              return (
+                <div
+                  key={token.tokenNumber}
+                  className="relative h-full flex-1 transition-all hover:opacity-90 cursor-pointer border-r border-card last:border-r-0 first:rounded-l-full last:rounded-r-full"
+                  style={{ backgroundColor: color }}
+                  onMouseEnter={() => setHoveredToken(token.tokenNumber)}
+                  onMouseLeave={() => setHoveredToken(null)}
+                  onClick={() => setClickedToken(clickedToken === token.tokenNumber ? null : token.tokenNumber)}
+                >
+                  {/* Tooltip */}
+                  {(isHovered || isClicked) && (
+                    <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-56 p-3 bg-popover/95 backdrop-blur-md text-popover-foreground border border-border rounded-xl shadow-xl z-50 text-xs pointer-events-none">
+                      <div className="flex items-center justify-between font-semibold text-sm mb-1.5 border-b border-border pb-1">
+                        <span className="truncate max-w-[120px]">{token.patientName}</span>
+                        <span className={cn("text-[9px] px-1.5 py-0.5 rounded-full font-bold",
+                          token.status === "serving" ? "bg-success/20 text-success" :
+                          token.status === "done" ? "bg-muted text-muted-foreground" : "bg-primary/20 text-primary"
+                        )}>
+                          {token.status.toUpperCase()}
+                        </span>
+                      </div>
+                      <div className="space-y-1 text-muted-foreground">
+                        <div className="flex justify-between">
+                          <span>Token:</span>
+                          <span className="font-mono text-foreground font-semibold">A-{String(token.tokenNumber).padStart(3, "0")}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span>Time:</span>
+                          <span className="font-mono text-foreground font-semibold">{formatTime(token.issuedAt)}</span>
+                        </div>
+                        <div className="flex justify-between gap-2">
+                          <span>Patient ID:</span>
+                          <span className="font-mono text-foreground font-semibold truncate max-w-[110px]" title={token.patientId}>
+                            {token.patientId}
+                          </span>
+                        </div>
+                      </div>
+                      <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-popover/95" />
+                    </div>
+                  )}
+                </div>
+              );
+            })}
           </div>
           <div className="mt-2 flex items-center justify-between text-xs text-muted-foreground">
             <span>Now serving: {fmt(liveQueue.currentServing)} ({progressLabel})</span>
@@ -647,4 +694,20 @@ function StarRating({
       </div>
     </div>
   );
+}
+
+function getSegmentColor(idx: number, total: number) {
+  if (total <= 1) return "rgb(59, 130, 246)"; // Solid Blue
+  const hue = Math.round((idx * 360) / total);
+  return `hsl(${hue}, 80%, 55%)`;
+}
+
+function formatTime(isoStr?: string | Date) {
+  if (!isoStr) return "—";
+  try {
+    const d = new Date(isoStr);
+    return d.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" });
+  } catch {
+    return "—";
+  }
 }
