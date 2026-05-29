@@ -6,6 +6,50 @@ const departmentRouter = require("express").Router();
 departmentRouter.get("/getAllDepartment", async (req, res) => {
   try {
     let allDepartments = await DepartmentModel.find();
+    if (allDepartments.length === 0) {
+      const defaults = [
+        {
+          departmentId: 1,
+          deptName: "Cardiology",
+          image: "https://images.unsplash.com/photo-1579684389782-64d84b5e9053?q=80&w=300",
+          about: "Specialized care for heart and cardiovascular health, including diagnostics, therapy, and surgery."
+        },
+        {
+          departmentId: 2,
+          deptName: "Dermatology",
+          image: "https://images.unsplash.com/photo-1614850523459-c2f4c699c52e?q=80&w=300",
+          about: "Expert diagnosis and treatment for diseases of the skin, hair, nails, and cosmetic concerns."
+        },
+        {
+          departmentId: 3,
+          deptName: "Pediatrics",
+          image: "https://images.unsplash.com/photo-1502740479091-635887520276?q=80&w=300",
+          about: "Comprehensive healthcare services dedicated to infants, children, and adolescents."
+        },
+        {
+          departmentId: 4,
+          deptName: "Neurology",
+          image: "https://images.unsplash.com/photo-1559757175-5700dde675bc?q=80&w=300",
+          about: "Diagnosis and management of disorders affecting the brain, spinal cord, and nervous system."
+        },
+        {
+          departmentId: 5,
+          deptName: "General Medicine",
+          image: "https://images.unsplash.com/photo-1584515979956-d9f6e5d09982?q=80&w=300",
+          about: "Primary healthcare, preventive medicine, wellness exams, and general health consulting."
+        },
+        {
+          departmentId: 6,
+          deptName: "Orthopedics",
+          image: "https://images.unsplash.com/photo-1516549655169-df83a0774514?q=80&w=300",
+          about: "Expert treatment for bone, joint, muscle, ligament, and tendon disorders or sports injuries."
+        }
+      ];
+      
+      await DepartmentModel.insertMany(defaults);
+      allDepartments = await DepartmentModel.find();
+      console.log("Seeded default departments successfully.");
+    }
     res.status(201).send({ msg: "All Departments", allDepartments });
   } catch (error) {
     res.status(404).send({ msg: "Server Error" });

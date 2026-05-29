@@ -46,7 +46,17 @@ function QueuePage() {
   const activeDept = departments.find((d) => d.departmentId === activeDeptId);
 
   // Live queue state via SSE (replaces setInterval simulation)
-  const liveQueue = useQueueSSE(activeDeptId);
+  const sseQueue = useQueueSSE(activeDeptId);
+
+  // Fetch initial queue state
+  const { data: initialQueue } = useQuery({
+    queryKey: ["queue-status", activeDeptId],
+    queryFn: () => queueApi.getStatus(activeDeptId!),
+    enabled: !!activeDeptId,
+    staleTime: 1000 * 10,
+  });
+
+  const liveQueue = sseQueue ?? initialQueue;
 
   // Patient's own token across ALL departments
   const { data: myToken, refetch: refetchToken } = useQuery({
@@ -63,6 +73,7 @@ function QueuePage() {
     onSuccess: (data) => {
       toast.success(`Joined queue! Your number: ${fmt(data.tokenNumber)} — position ${data.position}`);
       refetchToken();
+      qc.invalidateQueries({ queryKey: ["queue-status", activeDeptId] });
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -73,6 +84,7 @@ function QueuePage() {
     onSuccess: () => {
       toast.success("You've left the queue.");
       refetchToken();
+      qc.invalidateQueries({ queryKey: ["queue-status", activeDeptId] });
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -84,9 +96,29 @@ function QueuePage() {
     ? Math.max(1, myToken.position * 10)
     : null;
 
-  const progress = liveQueue && liveQueue.lastIssued > 0
-    ? Math.min(100, Math.round((liveQueue.currentServing / liveQueue.lastIssued) * 100))
-    : 0;
+  const progress = useMemo(() => {
+    if (!liveQueue) return 0;
+    if (inThisQueue && myToken) {
+      if (myToken.status === "serving" || myToken.status === "done") {
+        return 100;
+      }
+      if (myToken.tokenNumber > 0) {
+        return Math.min(100, Math.round((liveQueue.currentServing / myToken.tokenNumber) * 100));
+      }
+    }
+    return liveQueue.lastIssued > 0
+      ? Math.min(100, Math.round((liveQueue.currentServing / liveQueue.lastIssued) * 100))
+      : 0;
+  }, [liveQueue, inThisQueue, myToken]);
+
+  const progressLabel = useMemo(() => {
+    if (inThisQueue && myToken) {
+      if (myToken.status === "serving") return "Your turn now!";
+      if (myToken.status === "done") return "Consultation completed";
+      return `${progress}% towards your turn`;
+    }
+    return `${progress}% through today's queue`;
+  }, [progress, inThisQueue, myToken]);
 
   return (
     <AppLayout title="Live queue" subtitle="Real-time updates from every department.">
@@ -158,7 +190,7 @@ function QueuePage() {
                   ? `${myToken.position} patient${myToken.position !== 1 ? "s" : ""} ahead of you`
                   : `${liveQueue?.waitingCount ?? 0} patients waiting`}
               </span>
-              <span className="font-medium">{progress}% through today's queue</span>
+              <span className="font-medium">{progressLabel}</span>
             </div>
             <div className="mt-2 h-2.5 rounded-full bg-muted overflow-hidden">
               <motion.div

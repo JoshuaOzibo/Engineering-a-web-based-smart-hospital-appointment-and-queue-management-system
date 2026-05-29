@@ -2,7 +2,10 @@ const express = require("express");
 const queueRouter = express.Router();
 const { QueueModel } = require("../models/queue.model");
 const { DepartmentModel } = require("../models/department.model");
+const { DoctorModel } = require("../models/doctor.model");
+const { AppointmentModel } = require("../models/appointment.model");
 const { authenticate } = require("../middlewares/authenticator.mw");
+const logger = require("../utils/logger");
 require("dotenv").config();
 
 // ── In-memory SSE client registry ────────────────────────────────────────────
@@ -12,6 +15,86 @@ const sseClients = new Map();
 // ── Helpers ───────────────────────────────────────────────────────────────────
 function today() {
   return new Date().toISOString().slice(0, 10);
+}
+
+async function syncAppointmentsToQueue(deptId) {
+  try {
+    const todayStr = today();
+    
+    // Find all approved doctors in this department
+    const doctors = await DoctorModel.find({ departmentId: Number(deptId), status: true });
+    if (!doctors || doctors.length === 0) return false;
+    
+    const doctorIds = doctors.map(d => String(d._id));
+    
+    // Find all appointments for today for these doctors
+    const appointments = await AppointmentModel.find({
+      doctorId: { $in: doctorIds },
+      appointmentDate: { $regex: new RegExp(`^${todayStr}`) }
+    });
+    
+    // Fetch or create today's queue
+    let queue = await QueueModel.findOne({
+      departmentId: Number(deptId),
+      date: todayStr
+    });
+    
+    if (!queue) {
+      const dept = await DepartmentModel.findOne({ departmentId: Number(deptId) });
+      queue = await QueueModel.create({
+        departmentId: Number(deptId),
+        deptName: dept?.deptName ?? `Department ${deptId}`,
+        date: todayStr,
+        currentServing: 0,
+        lastIssued: 0,
+        tokens: []
+      });
+    }
+    
+    let updated = false;
+    
+    // Sort appointments by appointmentDate (so they get tokens in order of time)
+    appointments.sort((a, b) => {
+      return (a.appointmentDate || "").localeCompare(b.appointmentDate || "");
+    });
+    
+    for (const appt of appointments) {
+      const exists = queue.tokens.find(t => t.patientId === String(appt.patientId));
+      if (!exists) {
+        queue.lastIssued += 1;
+        const tokenStatus = appt.status ? "done" : "waiting";
+        queue.tokens.push({
+          tokenNumber: queue.lastIssued,
+          patientId: String(appt.patientId),
+          patientName: appt.patientFirstName || "Patient",
+          issuedAt: new Date(),
+          status: tokenStatus
+        });
+        updated = true;
+      } else {
+        // If appointment status is changed to completed (true), update token status to done
+        const tokenIndex = queue.tokens.findIndex(t => t.patientId === String(appt.patientId));
+        if (tokenIndex !== -1) {
+          const currentToken = queue.tokens[tokenIndex];
+          const expectedStatus = appt.status ? "done" : currentToken.status;
+          if (currentToken.status !== expectedStatus) {
+            queue.tokens[tokenIndex].status = expectedStatus;
+            updated = true;
+          }
+        }
+      }
+    }
+    
+    if (updated) {
+      await queue.save();
+      await broadcast(deptId);
+      return true;
+    }
+    return false;
+  } catch (err) {
+    console.error("Error syncing appointments to queue:", err);
+    return false;
+  }
 }
 
 function formatState(queue) {
@@ -58,6 +141,9 @@ queueRouter.get("/live/:deptId", async (req, res) => {
   if (!sseClients.has(deptId)) sseClients.set(deptId, new Set());
   sseClients.get(deptId).add(res);
 
+  // Sync today's appointments to queue!
+  await syncAppointmentsToQueue(deptId);
+
   // Push current state immediately on connect
   const queue = await QueueModel.findOne({ departmentId: Number(deptId), date: today() });
   res.write(`data: ${JSON.stringify(formatState(queue))}\n\n`);
@@ -77,8 +163,10 @@ queueRouter.get("/live/:deptId", async (req, res) => {
 // GET /queue/status/:deptId
 queueRouter.get("/status/:deptId", async (req, res) => {
   try {
+    const { deptId } = req.params;
+    await syncAppointmentsToQueue(deptId);
     const queue = await QueueModel.findOne({
-      departmentId: Number(req.params.deptId),
+      departmentId: Number(deptId),
       date: today(),
     });
     res.json(formatState(queue));
@@ -155,7 +243,23 @@ queueRouter.post("/join/:deptId", authenticate, async (req, res) => {
 queueRouter.get("/myToken", authenticate, async (req, res) => {
   const { userID } = req.body;
   try {
-    const queues = await QueueModel.find({ date: today() });
+    const todayStr = today();
+
+    // Find all today's appointments for this patient
+    const appts = await AppointmentModel.find({
+      patientId: String(userID),
+      appointmentDate: { $regex: new RegExp(`^${todayStr}`) }
+    });
+
+    // Sync appointments for each department to ensure patient is registered
+    for (const appt of appts) {
+      const doc = await DoctorModel.findById(appt.doctorId);
+      if (doc && doc.departmentId) {
+        await syncAppointmentsToQueue(doc.departmentId);
+      }
+    }
+
+    const queues = await QueueModel.find({ date: todayStr });
     for (const q of queues) {
       const token = q.tokens.find(
         (t) => t.patientId === String(userID) && t.status !== "done"
@@ -194,6 +298,23 @@ queueRouter.patch("/next/:deptId", async (req, res) => {
     const next = queue.tokens.find((t) => t.status === "waiting");
     if (!next) {
       return res.json({ msg: "No more patients in queue", currentServing: queue.currentServing });
+    }
+
+    // Auto-complete the previously serving patient's appointment
+    const previouslyServingToken = queue.tokens.find((t) => t.status === "serving");
+    if (previouslyServingToken) {
+      const doctors = await DoctorModel.find({ departmentId: Number(deptId), status: true });
+      const doctorIds = doctors.map(d => String(d._id));
+      await AppointmentModel.findOneAndUpdate(
+        {
+          patientId: previouslyServingToken.patientId,
+          doctorId: { $in: doctorIds },
+          appointmentDate: { $regex: new RegExp(`^${today()}`) },
+          status: false
+        },
+        { status: true }
+      );
+      logger.success(`Marked appointment completed for patient ${previouslyServingToken.patientId} via queue advance`);
     }
 
     await QueueModel.findByIdAndUpdate(

@@ -464,6 +464,24 @@ function QueueCard() {
     return `A-${String(n).padStart(3, "0")}`;
   }
 
+  const progress = useMemo(() => {
+    if (!liveQueue || !myToken) return 0;
+    if (myToken.status === "serving" || myToken.status === "done") {
+      return 100;
+    }
+    if (myToken.tokenNumber > 0) {
+      return Math.min(100, Math.round((liveQueue.currentServing / myToken.tokenNumber) * 100));
+    }
+    return 0;
+  }, [liveQueue, myToken]);
+
+  const progressLabel = useMemo(() => {
+    if (!myToken) return "";
+    if (myToken.status === "serving") return "Your turn now!";
+    if (myToken.status === "done") return "Consultation completed";
+    return `${progress}% towards your turn`;
+  }, [progress, myToken]);
+
   return (
     <section className="lg:col-span-2 rounded-2xl border border-border bg-card p-6 shadow-card">
       <div className="flex items-start justify-between flex-wrap gap-3">
@@ -512,11 +530,11 @@ function QueueCard() {
           <div className="mt-6 h-2 rounded-full bg-muted overflow-hidden">
             <div
               className="h-full bg-primary rounded-full transition-all duration-700"
-              style={{ width: `${Math.min(100, Math.round((liveQueue.currentServing / liveQueue.lastIssued) * 100))}%` }}
+              style={{ width: `${progress}%` }}
             />
           </div>
           <div className="mt-2 flex items-center justify-between text-xs text-muted-foreground">
-            <span>Now serving: {fmt(liveQueue.currentServing)}</span>
+            <span>Now serving: {fmt(liveQueue.currentServing)} ({progressLabel})</span>
             <span className="inline-flex items-center gap-1 text-success font-medium">
               <span className="size-1.5 rounded-full bg-success" /> Live via SSE
             </span>

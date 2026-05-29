@@ -522,24 +522,6 @@ function ProfilePage() {
                     </select>
                   </label>
 
-                  <label className="block">
-                    <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5 mb-1.5">
-                      <Stethoscope className="size-3.5 text-primary" /> Active Department
-                    </span>
-                    <select
-                      value={profileDeptId}
-                      onChange={(e) => setProfileDeptId(e.target.value)}
-                      className="w-full h-11 px-3 rounded-xl border border-input bg-surface text-sm focus:outline-none focus:ring-2 focus:ring-ring/40 font-medium"
-                    >
-                      <option value="">— Select Department —</option>
-                      {departments.map((dept) => (
-                        <option key={dept._id} value={dept.departmentId}>
-                          {dept.deptName}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-
                   <div className="sm:col-span-2 pt-2">
                     <label className="flex items-center gap-3 cursor-pointer select-none">
                       <input

@@ -1,6 +1,6 @@
 import { Link, useRouterState } from "@tanstack/react-router";
 import { Calendar, LayoutDashboard, Users, Activity, Bell, Stethoscope, ShieldCheck, Hospital, Search, LogOut, LogIn, User } from "lucide-react";
-import { ReactNode } from "react";
+import { ReactNode, useMemo } from "react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/lib/auth";
 import { useQuery } from "@tanstack/react-query";
@@ -20,13 +20,19 @@ export function AppLayout({ children, title, subtitle, actions }: { children: Re
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const { user, isAuthenticated, logout } = useAuth();
 
-  // Retrieve doctors to check if user's email belongs to an approved doctor
+  const showAvailableDoctors = !pathname.startsWith("/admin") && !pathname.startsWith("/doctor") && !pathname.startsWith("/doctor-appointments");
+
+  // Retrieve doctors to check if user's email belongs to an approved doctor or to show available doctors for patients
   const { data: doctorData } = useQuery({
     queryKey: ["doctors"],
     queryFn: () => doctorApi.getAll(),
     staleTime: 1000 * 60 * 5,
-    enabled: isAuthenticated && !!user?.email,
+    enabled: (isAuthenticated && !!user?.email) || showAvailableDoctors,
   });
+
+  const availableDoctorsCount = useMemo(() => {
+    return (doctorData?.doctor ?? []).filter((d) => d.status && d.isAvailable).length;
+  }, [doctorData]);
 
   const matchedDoctor = (doctorData?.doctor ?? []).find(d => d.email.toLowerCase() === user?.email?.toLowerCase());
   const isDoctor = !!matchedDoctor;
@@ -138,10 +144,12 @@ export function AppLayout({ children, title, subtitle, actions }: { children: Re
                 <span className="absolute top-2 right-2 size-2 rounded-full bg-destructive" />
               )}
             </Link>
-            <div className="hidden md:flex items-center gap-2 text-xs text-muted-foreground whitespace-nowrap">
-              <Users className="size-4" />
-              <span>4 staff online</span>
-            </div>
+            {showAvailableDoctors && (
+              <div className="hidden md:flex items-center gap-2 text-xs text-muted-foreground whitespace-nowrap">
+                <Users className="size-4" />
+                <span>{availableDoctorsCount} doctor{availableDoctorsCount !== 1 ? "s" : ""} available</span>
+              </div>
+            )}
           </div>
         </header>
 
