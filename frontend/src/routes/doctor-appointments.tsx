@@ -4,8 +4,19 @@ import { useState, useMemo, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import {
-  Calendar, Clock, FileText, CheckCircle2, Loader2,
-  AlertCircle, ChevronLeft, Search, Filter, X, Trash2, RefreshCw, Check
+  Calendar,
+  Clock,
+  FileText,
+  CheckCircle2,
+  Loader2,
+  AlertCircle,
+  ChevronLeft,
+  Search,
+  Filter,
+  X,
+  Trash2,
+  RefreshCw,
+  Check,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { appointmentApi, doctorApi, type BackendAppointment } from "@/lib/api";
@@ -30,7 +41,7 @@ function DoctorAppointmentsPage() {
   });
 
   const matchedDoctor = (doctorData?.doctor ?? []).find(
-    (d) => d.email.toLowerCase() === user?.email?.toLowerCase()
+    (d) => d.email.toLowerCase() === user?.email?.toLowerCase(),
   );
   const selectedDoctorId = matchedDoctor?._id;
 
@@ -56,7 +67,12 @@ function DoctorAppointmentsPage() {
   const [reschedulingApptId, setReschedulingApptId] = useState<string | null>(null);
   const [newRescheduleDate, setNewRescheduleDate] = useState<string>("");
 
-  const { data: apptData, isLoading: apptLoading, refetch, isRefetching } = useQuery({
+  const {
+    data: apptData,
+    isLoading: apptLoading,
+    refetch,
+    isRefetching,
+  } = useQuery({
     queryKey: ["doctor-appointments", selectedDoctorId],
     queryFn: () => appointmentApi.getDoctorAppointments(selectedDoctorId!),
     enabled: !!selectedDoctorId,
@@ -118,7 +134,8 @@ function DoctorAppointmentsPage() {
 
   // Reschedule mutation
   const rescheduleMutation = useMutation({
-    mutationFn: ({ id, date }: { id: string; date: string }) => appointmentApi.rescheduleByDoctor(id, date),
+    mutationFn: ({ id, date }: { id: string; date: string }) =>
+      appointmentApi.rescheduleByDoctor(id, date),
     onSuccess: () => {
       toast.success("Appointment rescheduled successfully.");
       setReschedulingApptId(null);
@@ -165,23 +182,32 @@ function DoctorAppointmentsPage() {
       {/* KPI Stats */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
         <div className="rounded-2xl border border-border bg-card p-5 shadow-soft">
-          <div className="text-xs uppercase tracking-wider text-muted-foreground font-semibold">Total Matching</div>
+          <div className="text-xs uppercase tracking-wider text-muted-foreground font-semibold">
+            Total Matching
+          </div>
           <div className="text-3xl font-extrabold tracking-tight mt-1.5">{stats.total}</div>
         </div>
         <div className="rounded-2xl border border-border bg-card p-5 shadow-soft">
-          <div className="text-xs uppercase tracking-wider text-muted-foreground font-semibold text-success">Completed Visits</div>
-          <div className="text-3xl font-extrabold tracking-tight text-success mt-1.5">{stats.completed}</div>
+          <div className="text-xs uppercase tracking-wider text-muted-foreground font-semibold text-success">
+            Completed Visits
+          </div>
+          <div className="text-3xl font-extrabold tracking-tight text-success mt-1.5">
+            {stats.completed}
+          </div>
         </div>
         <div className="rounded-2xl border border-border bg-card p-5 shadow-soft">
-          <div className="text-xs uppercase tracking-wider text-muted-foreground font-semibold text-primary">Upcoming Appointments</div>
-          <div className="text-3xl font-extrabold tracking-tight text-primary mt-1.5">{stats.upcoming}</div>
+          <div className="text-xs uppercase tracking-wider text-muted-foreground font-semibold text-primary">
+            Upcoming Appointments
+          </div>
+          <div className="text-3xl font-extrabold tracking-tight text-primary mt-1.5">
+            {stats.upcoming}
+          </div>
         </div>
       </div>
 
       {/* Filter and Search Bar */}
       <div className="rounded-2xl border border-border bg-card p-5 shadow-soft mb-6">
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-          
           {/* Search Input */}
           <div className="flex-1 relative">
             <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
@@ -211,7 +237,7 @@ function DoctorAppointmentsPage() {
                 "h-11 px-3.5 rounded-xl border text-xs font-semibold transition-all",
                 dateFilter === todayIso
                   ? "bg-primary/10 border-primary text-primary"
-                  : "border-border bg-surface hover:bg-muted text-foreground"
+                  : "border-border bg-surface hover:bg-muted text-foreground",
               )}
             >
               Today
@@ -232,7 +258,7 @@ function DoctorAppointmentsPage() {
                   "px-4 h-9 rounded-lg text-xs font-semibold transition-all",
                   statusFilter === t.id
                     ? "bg-card text-foreground shadow-soft border border-border/30"
-                    : "text-muted-foreground hover:text-foreground"
+                    : "text-muted-foreground hover:text-foreground",
                 )}
               >
                 {t.label}
@@ -261,7 +287,9 @@ function DoctorAppointmentsPage() {
       <div className="rounded-2xl border border-border bg-card shadow-soft overflow-hidden">
         <div className="p-5 border-b border-border bg-muted/10 flex items-center justify-between">
           <h3 className="font-semibold text-sm">Appointments Schedule</h3>
-          <span className="text-xs text-muted-foreground">{filteredAppointments.length} matching visits</span>
+          <span className="text-xs text-muted-foreground">
+            {filteredAppointments.length} matching visits
+          </span>
         </div>
 
         {apptLoading ? (
@@ -274,7 +302,8 @@ function DoctorAppointmentsPage() {
             <Calendar className="size-10 text-muted-foreground" />
             <h4 className="font-medium text-sm">No matching appointments</h4>
             <p className="text-xs text-muted-foreground max-w-xs">
-              No appointments match the selected filters or date range. Check another date or update your search query.
+              No appointments match the selected filters or date range. Check another date or update
+              your search query.
             </p>
           </div>
         ) : (
@@ -298,14 +327,20 @@ function DoctorAppointmentsPage() {
                           {appt.patientFirstName?.[0]?.toUpperCase() ?? "P"}
                         </div>
                         <div>
-                          <div className="font-semibold text-foreground">{appt.patientFirstName}</div>
-                          <div className="text-[10px] text-muted-foreground">ID: {appt.patientId}</div>
+                          <div className="font-semibold text-foreground">
+                            {appt.patientFirstName}
+                          </div>
+                          <div className="text-[10px] text-muted-foreground">
+                            ID: {appt.patientId}
+                          </div>
                         </div>
                       </div>
                     </td>
                     <td className="px-6 py-4">
                       <div className="flex flex-col">
-                        <span className="font-medium">{appt.appointmentDate ? formatDate(appt.appointmentDate) : "TBD"}</span>
+                        <span className="font-medium">
+                          {appt.appointmentDate ? formatDate(appt.appointmentDate) : "TBD"}
+                        </span>
                         <span className="text-xs text-muted-foreground inline-flex items-center gap-1 mt-0.5">
                           <Clock className="size-3" />
                           {appt.appointmentDate ? appt.appointmentDate.slice(11, 16) : "TBD"}
@@ -313,7 +348,9 @@ function DoctorAppointmentsPage() {
                       </div>
                     </td>
                     <td className="px-6 py-4 max-w-[240px]">
-                      <div className="text-sm font-medium text-foreground truncate">{appt.problemDescription || "—"}</div>
+                      <div className="text-sm font-medium text-foreground truncate">
+                        {appt.problemDescription || "—"}
+                      </div>
                     </td>
                     <td className="px-6 py-4">
                       <div className="flex flex-col gap-1 items-start">
@@ -322,10 +359,15 @@ function DoctorAppointmentsPage() {
                             "inline-flex items-center gap-1.5 text-[11px] px-2.5 py-0.5 rounded-full font-semibold",
                             appt.status
                               ? "bg-success/15 text-success"
-                              : "bg-primary/10 text-primary"
+                              : "bg-primary/10 text-primary",
                           )}
                         >
-                          <span className={cn("size-1.5 rounded-full", appt.status ? "bg-success" : "bg-primary")} />
+                          <span
+                            className={cn(
+                              "size-1.5 rounded-full",
+                              appt.status ? "bg-success" : "bg-primary",
+                            )}
+                          />
                           {appt.status ? "Completed" : "Upcoming"}
                         </span>
                         {appt.rescheduledByDoctor && (
@@ -345,11 +387,17 @@ function DoctorAppointmentsPage() {
                             className="h-8 rounded-lg border border-input px-2 text-xs focus:outline-none focus:ring-1 focus:ring-primary"
                           />
                           <button
-                            onClick={() => rescheduleMutation.mutate({ id: appt._id, date: newRescheduleDate })}
+                            onClick={() =>
+                              rescheduleMutation.mutate({ id: appt._id, date: newRescheduleDate })
+                            }
                             disabled={rescheduleMutation.isPending}
                             className="h-8 px-2.5 rounded-lg bg-primary hover:bg-primary/95 text-primary-foreground text-xs font-semibold inline-flex items-center gap-1"
                           >
-                            {rescheduleMutation.isPending ? <Loader2 className="size-3 animate-spin" /> : "Save"}
+                            {rescheduleMutation.isPending ? (
+                              <Loader2 className="size-3 animate-spin" />
+                            ) : (
+                              "Save"
+                            )}
                           </button>
                           <button
                             onClick={() => {
@@ -370,7 +418,8 @@ function DoctorAppointmentsPage() {
                                 disabled={completeMutation.isPending}
                                 className="h-8 px-3 rounded-lg bg-success hover:bg-success-hover text-success-foreground text-xs font-semibold inline-flex items-center gap-1 shadow-soft transition-all"
                               >
-                                {completeMutation.isPending && completeMutation.variables === appt._id ? (
+                                {completeMutation.isPending &&
+                                completeMutation.variables === appt._id ? (
                                   <Loader2 className="size-3 animate-spin" />
                                 ) : (
                                   <Check className="size-3" />
@@ -380,7 +429,11 @@ function DoctorAppointmentsPage() {
                               <button
                                 onClick={() => {
                                   setReschedulingApptId(appt._id);
-                                  setNewRescheduleDate(appt.appointmentDate ? appt.appointmentDate.slice(0, 16) : new Date().toISOString().slice(0, 16));
+                                  setNewRescheduleDate(
+                                    appt.appointmentDate
+                                      ? appt.appointmentDate.slice(0, 16)
+                                      : new Date().toISOString().slice(0, 16),
+                                  );
                                 }}
                                 className="h-8 px-3 rounded-lg border border-border hover:bg-muted text-foreground text-xs font-semibold inline-flex items-center gap-1 transition-all"
                               >
@@ -391,7 +444,11 @@ function DoctorAppointmentsPage() {
                           )}
                           <button
                             onClick={() => {
-                              if (window.confirm(`Are you sure you want to cancel this appointment with ${appt.patientFirstName}?`)) {
+                              if (
+                                window.confirm(
+                                  `Are you sure you want to cancel this appointment with ${appt.patientFirstName}?`,
+                                )
+                              ) {
                                 cancelMutation.mutate(appt._id);
                               }
                             }}
@@ -420,5 +477,10 @@ function DoctorAppointmentsPage() {
 }
 
 function formatDate(iso: string) {
-  return new Date(iso).toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric", year: "numeric" });
+  return new Date(iso).toLocaleDateString(undefined, {
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
 }

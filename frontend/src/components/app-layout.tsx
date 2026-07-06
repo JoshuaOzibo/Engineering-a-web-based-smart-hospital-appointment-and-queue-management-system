@@ -1,10 +1,24 @@
 import { Link, useRouterState } from "@tanstack/react-router";
-import { Calendar, LayoutDashboard, Users, Activity, Bell, Stethoscope, ShieldCheck, Hospital, Search, LogOut, LogIn, User } from "lucide-react";
+import {
+  Calendar,
+  LayoutDashboard,
+  Users,
+  Activity,
+  Bell,
+  Stethoscope,
+  ShieldCheck,
+  Hospital,
+  Search,
+  LogOut,
+  LogIn,
+  User,
+} from "lucide-react";
 import { ReactNode, useMemo } from "react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/lib/auth";
 import { useQuery } from "@tanstack/react-query";
 import { doctorApi } from "@/lib/api";
+import { ThemeToggle } from "@/components/theme-toggle";
 
 const nav = [
   { to: "/patient", label: "Overview", icon: LayoutDashboard, group: "Patient" },
@@ -16,11 +30,24 @@ const nav = [
   { to: "/doctor-appointments", label: "My Appointments", icon: Calendar, group: "Doctor" },
 ] as const;
 
-export function AppLayout({ children, title, subtitle, actions }: { children: ReactNode; title: string; subtitle?: string; actions?: ReactNode }) {
+export function AppLayout({
+  children,
+  title,
+  subtitle,
+  actions,
+}: {
+  children: ReactNode;
+  title: string;
+  subtitle?: string;
+  actions?: ReactNode;
+}) {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const { user, isAuthenticated, logout } = useAuth();
 
-  const showAvailableDoctors = !pathname.startsWith("/admin") && !pathname.startsWith("/doctor") && !pathname.startsWith("/doctor-appointments");
+  const showAvailableDoctors =
+    !pathname.startsWith("/admin") &&
+    !pathname.startsWith("/doctor") &&
+    !pathname.startsWith("/doctor-appointments");
 
   // Retrieve doctors to check if user's email belongs to an approved doctor or to show available doctors for patients
   const { data: doctorData } = useQuery({
@@ -34,10 +61,16 @@ export function AppLayout({ children, title, subtitle, actions }: { children: Re
     return (doctorData?.doctor ?? []).filter((d) => d.status && d.isAvailable).length;
   }, [doctorData]);
 
-  const matchedDoctor = (doctorData?.doctor ?? []).find(d => d.email.toLowerCase() === user?.email?.toLowerCase());
+  const matchedDoctor = (doctorData?.doctor ?? []).find(
+    (d) => d.email.toLowerCase() === user?.email?.toLowerCase(),
+  );
   const isDoctor = !!matchedDoctor;
   const isApprovedDoctor = matchedDoctor?.status === true;
-  const roleLabel = isDoctor ? (isApprovedDoctor ? "Doctor" : "Doctor (Pending Approval)") : "Patient";
+  const roleLabel = isDoctor
+    ? isApprovedDoctor
+      ? "Doctor"
+      : "Doctor (Pending Approval)"
+    : "Patient";
 
   // Filter groups & navigation links based on role
   const groups = isDoctor ? (["Patient", "Doctor"] as const) : (["Patient"] as const);
@@ -50,14 +83,15 @@ export function AppLayout({ children, title, subtitle, actions }: { children: Re
   });
 
   // Derive initials from name
-  const initials = user
-    ? `${user.name[0] ?? ""}${user.last_name[0] ?? ""}`.toUpperCase()
-    : "?";
+  const initials = user ? `${user.name[0] ?? ""}${user.last_name[0] ?? ""}`.toUpperCase() : "?";
 
   return (
     <div className="min-h-screen flex w-full bg-surface">
       <aside className="hidden lg:flex w-64 shrink-0 flex-col border-r border-border bg-sidebar h-screen sticky top-0 overflow-hidden">
-        <Link to="/" className="flex items-center gap-2 px-6 h-16 border-b border-sidebar-border shrink-0">
+        <Link
+          to="/"
+          className="flex items-center gap-2 px-6 h-16 border-b border-sidebar-border shrink-0"
+        >
           <div className="size-9 rounded-xl bg-primary text-primary-foreground grid place-items-center">
             <Hospital className="size-5" />
           </div>
@@ -69,27 +103,31 @@ export function AppLayout({ children, title, subtitle, actions }: { children: Re
         <nav className="flex-1 px-3 py-5 space-y-6">
           {groups.map((g) => (
             <div key={g}>
-              <div className="px-3 mb-2 text-[11px] font-medium uppercase tracking-wider text-muted-foreground">{g}</div>
+              <div className="px-3 mb-2 text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+                {g}
+              </div>
               <ul className="space-y-1">
-                {filteredNav.filter((n) => n.group === g).map((item) => {
-                  const active = pathname === item.to || pathname.startsWith(item.to + "/");
-                  return (
-                    <li key={item.to}>
-                      <Link
-                        to={item.to}
-                        className={cn(
-                          "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
-                          active
-                            ? "bg-primary/10 text-primary"
-                            : "text-sidebar-foreground hover:bg-sidebar-accent"
-                        )}
-                      >
-                        <item.icon className="size-4" />
-                        {item.label}
-                      </Link>
-                    </li>
-                  );
-                })}
+                {filteredNav
+                  .filter((n) => n.group === g)
+                  .map((item) => {
+                    const active = pathname === item.to || pathname.startsWith(item.to + "/");
+                    return (
+                      <li key={item.to}>
+                        <Link
+                          to={item.to}
+                          className={cn(
+                            "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
+                            active
+                              ? "bg-primary/10 text-primary"
+                              : "text-sidebar-foreground hover:bg-sidebar-accent",
+                          )}
+                        >
+                          <item.icon className="size-4" />
+                          {item.label}
+                        </Link>
+                      </li>
+                    );
+                  })}
               </ul>
             </div>
           ))}
@@ -104,7 +142,9 @@ export function AppLayout({ children, title, subtitle, actions }: { children: Re
                   {initials}
                 </div>
                 <div className="leading-tight flex-1 min-w-0">
-                  <div className="text-sm font-medium text-foreground truncate">{user.name} {user.last_name}</div>
+                  <div className="text-sm font-medium text-foreground truncate">
+                    {user.name} {user.last_name}
+                  </div>
                   <div className="text-[11px] text-muted-foreground truncate">{roleLabel}</div>
                 </div>
               </div>
@@ -138,16 +178,22 @@ export function AppLayout({ children, title, subtitle, actions }: { children: Re
             />
           </div>
           <div className="flex items-center justify-end md:justify-between gap-4 w-auto md:w-48 shrink-0">
-            <Link to="/notifications" className="relative size-10 grid place-items-center rounded-lg hover:bg-muted">
+            <ThemeToggle />
+            <Link
+              to="/notifications"
+              className="relative size-10 grid place-items-center rounded-lg hover:bg-muted"
+            >
               <Bell className="size-4 text-foreground" />
-              {filteredNav.some(n => n.to === "/notifications") && (
+              {filteredNav.some((n) => n.to === "/notifications") && (
                 <span className="absolute top-2 right-2 size-2 rounded-full bg-destructive" />
               )}
             </Link>
             {showAvailableDoctors && (
               <div className="hidden md:flex items-center gap-2 text-xs text-muted-foreground whitespace-nowrap">
                 <Users className="size-4" />
-                <span>{availableDoctorsCount} doctor{availableDoctorsCount !== 1 ? "s" : ""} available</span>
+                <span>
+                  {availableDoctorsCount} doctor{availableDoctorsCount !== 1 ? "s" : ""} available
+                </span>
               </div>
             )}
           </div>
@@ -157,7 +203,9 @@ export function AppLayout({ children, title, subtitle, actions }: { children: Re
           <div className="max-w-7xl mx-auto">
             <div className="flex flex-wrap items-end justify-between gap-4 mb-6">
               <div>
-                <h1 className="text-2xl md:text-[28px] font-semibold text-foreground tracking-tight">{title}</h1>
+                <h1 className="text-2xl md:text-[28px] font-semibold text-foreground tracking-tight">
+                  {title}
+                </h1>
                 {subtitle && <p className="text-sm text-muted-foreground mt-1">{subtitle}</p>}
               </div>
               {actions && <div className="flex flex-wrap items-center gap-2">{actions}</div>}
@@ -177,7 +225,7 @@ export function AppLayout({ children, title, subtitle, actions }: { children: Re
               to={item.to}
               className={cn(
                 "flex flex-col items-center justify-center gap-1 text-[10px] font-semibold transition-colors",
-                active ? "text-primary" : "text-muted-foreground hover:text-foreground"
+                active ? "text-primary" : "text-muted-foreground hover:text-foreground",
               )}
             >
               <item.icon className="size-5" />

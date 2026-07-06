@@ -25,7 +25,9 @@ export function useQueueSSE(deptId: number | string | null): QueueState | null {
         try {
           const data = JSON.parse(e.data) as QueueState;
           setState(data);
-        } catch {/* ignore malformed frames */}
+        } catch {
+          /* ignore malformed frames */
+        }
       };
 
       es.onerror = () => {

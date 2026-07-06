@@ -21,10 +21,7 @@ export class ApiError extends Error {
 }
 
 // ── Core fetch wrapper ────────────────────────────────────────────────────────
-async function apiFetch<T = unknown>(
-  path: string,
-  options: RequestInit = {},
-): Promise<T> {
+async function apiFetch<T = unknown>(path: string, options: RequestInit = {}): Promise<T> {
   const token = localStorage.getItem("mq_token");
 
   const headers: Record<string, string> = {
@@ -91,16 +88,35 @@ export const api = {
 
 // Auth
 export const authApi = {
-  sendOtp: (email: string) => api.post<{ msg: string; email: string }>("/user/emailVerify", { email }),
-  signup: (body: { first_name: string; last_name: string; email: string; mobile: string; password: string }) =>
-    api.post<{ msg: string }>("/user/signup", body),
+  sendOtp: (email: string) =>
+    api.post<{ msg: string; email: string }>("/user/emailVerify", { email }),
+  signup: (body: {
+    first_name: string;
+    last_name: string;
+    email: string;
+    mobile: string;
+    password: string;
+  }) => api.post<{ msg: string }>("/user/signup", body),
   signin: (body: { payload: string; password: string }) =>
-    api.post<{ message: string; token: string; name: string; last_name: string; email: string; mobile: string }>(
-      "/user/signin",
-      body,
-    ),
-  updateUser: (body: { first_name: string; last_name: string; email: string; mobile: string; password?: string }) =>
-    api.patch<{ msg: string; user: { name: string; last_name: string; email: string; mobile: string } }>("/user/update", body),
+    api.post<{
+      message: string;
+      token: string;
+      name: string;
+      last_name: string;
+      email: string;
+      mobile: string;
+    }>("/user/signin", body),
+  updateUser: (body: {
+    first_name: string;
+    last_name: string;
+    email: string;
+    mobile: string;
+    password?: string;
+  }) =>
+    api.patch<{
+      msg: string;
+      user: { name: string; last_name: string; email: string; mobile: string };
+    }>("/user/update", body),
 };
 
 // Doctors
@@ -160,11 +176,15 @@ export type BackendDepartment = {
 
 export const departmentApi = {
   getAll: async () => {
-    const res = await api.get<{ msg: string; allDepartments: BackendDepartment[] }>("/department/getAllDepartment");
+    const res = await api.get<{ msg: string; allDepartments: BackendDepartment[] }>(
+      "/department/getAllDepartment",
+    );
     return res.allDepartments;
   },
   getById: async (id: string | number) => {
-    const res = await api.get<{ msg: string; department: BackendDepartment }>(`/department/getDepartment/${id}`);
+    const res = await api.get<{ msg: string; department: BackendDepartment }>(
+      `/department/getDepartment/${id}`,
+    );
     return res.department;
   },
 };
@@ -199,7 +219,10 @@ export type CreateAppointmentBody = {
 
 export const appointmentApi = {
   checkSlot: (doctorId: string, date: string, slotTime: string) =>
-    api.post<{ available: boolean; msg: string }>(`/appointment/checkSlot/${doctorId}`, { date, slotTime }),
+    api.post<{ available: boolean; msg: string }>(`/appointment/checkSlot/${doctorId}`, {
+      date,
+      slotTime,
+    }),
   create: (doctorId: string, body: CreateAppointmentBody) =>
     api.post<{ message: string; status: boolean }>(`/appointment/create/${doctorId}`, body),
   getMyAppointments: () =>
@@ -209,9 +232,13 @@ export const appointmentApi = {
   reschedule: (appointmentId: string, body: Partial<CreateAppointmentBody>) =>
     api.patch<{ message: string }>(`/appointment/reschedule/${appointmentId}`, body),
   rescheduleByDoctor: (appointmentId: string, appointmentDate: string) =>
-    api.patch<{ message: string }>(`/appointment/doctor/reschedule/${appointmentId}`, { appointmentDate }),
+    api.patch<{ message: string }>(`/appointment/doctor/reschedule/${appointmentId}`, {
+      appointmentDate,
+    }),
   getDoctorAppointments: (doctorId: string) =>
-    api.get<{ message: string; appointments: BackendAppointment[] }>(`/appointment/doctor/${doctorId}`),
+    api.get<{ message: string; appointments: BackendAppointment[] }>(
+      `/appointment/doctor/${doctorId}`,
+    ),
   // Admin actions
   getAllAdmin: () =>
     api.get<{ message: string; appointments: BackendAppointment[] }>("/appointment/all"),
@@ -264,21 +291,17 @@ export type MyTokenState = {
 } | null;
 
 export const queueApi = {
-  getStatus: (deptId: number | string) =>
-    api.get<QueueState>(`/queue/status/${deptId}`),
+  getStatus: (deptId: number | string) => api.get<QueueState>(`/queue/status/${deptId}`),
   join: (deptId: number | string, patientName: string) =>
-    api.post<{ msg: string; tokenNumber: number; position: number }>(
-      `/queue/join/${deptId}`,
-      { patientName },
-    ),
+    api.post<{ msg: string; tokenNumber: number; position: number }>(`/queue/join/${deptId}`, {
+      patientName,
+    }),
   getMyToken: () => api.get<MyTokenState>("/queue/myToken"),
   callNext: (deptId: number | string) =>
     api.patch<{ msg: string; currentServing: number; patientName?: string }>(
       `/queue/next/${deptId}`,
       {},
     ),
-  leave: (deptId: number | string) =>
-    api.delete<{ msg: string }>(`/queue/leave/${deptId}`),
-  reset: (deptId: number | string) =>
-    api.post<{ msg: string }>(`/queue/reset/${deptId}`, {}),
+  leave: (deptId: number | string) => api.delete<{ msg: string }>(`/queue/leave/${deptId}`),
+  reset: (deptId: number | string) => api.post<{ msg: string }>(`/queue/reset/${deptId}`, {}),
 };

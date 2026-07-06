@@ -11,6 +11,7 @@ import {
 import appCss from "../styles.css?url";
 import { AuthProvider } from "@/lib/auth";
 import { Toaster } from "sonner";
+import { ThemeProvider } from "@/components/theme-provider";
 
 function NotFoundComponent() {
   return (
@@ -75,16 +76,18 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
       { title: "Mediqueue Smart Hospital Appointment & Queue Management" },
-      { name: "description", content: "Book appointments, join the queue from home, and track your wait time in real time at St. Helena Medical Center." },
+      {
+        name: "description",
+        content:
+          "Book appointments, join the queue from home, and track your wait time in real time at St. Helena Medical Center.",
+      },
       { name: "author", content: "St. Helena Medical Center" },
       { property: "og:title", content: "Mediqueue" },
       { property: "og:description", content: "Smart hospital appointment & queue management." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
     ],
-    links: [
-      { rel: "stylesheet", href: appCss },
-    ],
+    links: [{ rel: "stylesheet", href: appCss }],
   }),
   shellComponent: RootShell,
   component: RootComponent,
@@ -111,10 +114,12 @@ function RootComponent() {
 
   return (
     <QueryClientProvider client={queryClient}>
-      <AuthProvider>
-        <Outlet />
-        <Toaster position="top-right" richColors closeButton />
-      </AuthProvider>
+      <ThemeProvider defaultTheme="system" storageKey="mediqueue-theme">
+        <AuthProvider>
+          <Outlet />
+          <Toaster position="top-right" richColors closeButton />
+        </AuthProvider>
+      </ThemeProvider>
     </QueryClientProvider>
   );
 }

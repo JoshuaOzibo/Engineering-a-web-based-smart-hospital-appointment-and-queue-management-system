@@ -5,20 +5,66 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { useAuth } from "@/lib/auth";
 import {
-  Activity, CheckCircle2, Clock, Users, Stethoscope,
-  Plus, Loader2, WifiOff, CalendarDays, Star, Trash2,
-  ChevronRight, Bell,
+  Activity,
+  CheckCircle2,
+  Clock,
+  Users,
+  Stethoscope,
+  Plus,
+  Loader2,
+  WifiOff,
+  CalendarDays,
+  Star,
+  Trash2,
+  ChevronRight,
+  Bell,
 } from "lucide-react";
-import { LineChart, Line, ResponsiveContainer, XAxis, YAxis, Tooltip, CartesianGrid } from "recharts";
+import {
+  LineChart,
+  Line,
+  ResponsiveContainer,
+  XAxis,
+  YAxis,
+  Tooltip,
+  CartesianGrid,
+} from "recharts";
 import { cn } from "@/lib/utils";
-import { doctorApi, appointmentApi, queueApi, type BackendDoctor, type BackendAppointment, type UpdateDoctorProfileBody } from "@/lib/api";
+import {
+  doctorApi,
+  appointmentApi,
+  queueApi,
+  type BackendDoctor,
+  type BackendAppointment,
+  type UpdateDoctorProfileBody,
+} from "@/lib/api";
 import { useQueueSSE } from "@/lib/useQueueSSE";
 
 const NIGERIAN_CITIES = [
-  "Lagos", "Abuja", "Kano", "Ibadan", "Port Harcourt", "Benin City",
-  "Maiduguri", "Enugu", "Kaduna", "Ilorin", "Onitsha", "Warri",
-  "Aba", "Owerri", "Abeokuta", "Sokoto", "Uyo", "Calabar",
-  "Akure", "Jos", "Bauchi", "Zaria", "Asaba", "Yola", "Minna",
+  "Lagos",
+  "Abuja",
+  "Kano",
+  "Ibadan",
+  "Port Harcourt",
+  "Benin City",
+  "Maiduguri",
+  "Enugu",
+  "Kaduna",
+  "Ilorin",
+  "Onitsha",
+  "Warri",
+  "Aba",
+  "Owerri",
+  "Abeokuta",
+  "Sokoto",
+  "Uyo",
+  "Calabar",
+  "Akure",
+  "Jos",
+  "Bauchi",
+  "Zaria",
+  "Asaba",
+  "Yola",
+  "Minna",
 ];
 
 export const Route = createFileRoute("/doctor")({
@@ -32,7 +78,8 @@ const todayPlus = (days: number) => {
   return d.toISOString().split("T")[0];
 };
 
-const formatDate = (date: string) => new Date(date).toLocaleDateString("en-NG", { month: "short", day: "numeric", weekday: "short" });
+const formatDate = (date: string) =>
+  new Date(date).toLocaleDateString("en-NG", { month: "short", day: "numeric", weekday: "short" });
 const isToday = (date: string | undefined): boolean => {
   if (!date) return false;
   try {
@@ -45,8 +92,24 @@ const isToday = (date: string | undefined): boolean => {
 };
 
 // Default slot times a doctor can add
-const DEFAULT_SLOTS = ["08:00","08:30","09:00","09:30","10:00","10:30","11:00","11:30",
-  "13:00","13:30","14:00","14:30","15:00","15:30","16:00","16:30"];
+const DEFAULT_SLOTS = [
+  "08:00",
+  "08:30",
+  "09:00",
+  "09:30",
+  "10:00",
+  "10:30",
+  "11:00",
+  "11:30",
+  "13:00",
+  "13:30",
+  "14:00",
+  "14:30",
+  "15:00",
+  "15:30",
+  "16:00",
+  "16:30",
+];
 
 function DoctorPage() {
   const qc = useQueryClient();
@@ -59,15 +122,18 @@ function DoctorPage() {
   const [selectedSlots, setSelectedSlots] = useState<string[]>([]);
 
   // Retrieve admin session
-  const adminSession = typeof window !== "undefined"
-    ? (() => {
-        try {
-          return JSON.parse(localStorage.getItem("mq_admin") ?? "null") as { email: string } | null;
-        } catch {
-          return null;
-        }
-      })()
-    : null;
+  const adminSession =
+    typeof window !== "undefined"
+      ? (() => {
+          try {
+            return JSON.parse(localStorage.getItem("mq_admin") ?? "null") as {
+              email: string;
+            } | null;
+          } catch {
+            return null;
+          }
+        })()
+      : null;
   const isAdmin = !!adminSession;
 
   // ── Fetch all doctors (both approved and pending) ──────────────────────────
@@ -76,10 +142,7 @@ function DoctorPage() {
     queryFn: () => doctorApi.getAll(),
     staleTime: 1000 * 60 * 2,
   });
-  const doctors = useMemo(
-    () => doctorData?.doctor ?? [],
-    [doctorData],
-  );
+  const doctors = useMemo(() => doctorData?.doctor ?? [], [doctorData]);
   const doctor = doctors.find((d) => d._id === selectedDoctorId) ?? null;
 
   // Auto-detect logged-in doctor profile (even if pending approval)
@@ -109,10 +172,7 @@ function DoctorPage() {
     enabled: !!selectedDoctorId,
     staleTime: 1000 * 30,
   });
-  const myAppointments = useMemo(
-    () => apptData?.appointments ?? [],
-    [apptData],
-  );
+  const myAppointments = useMemo(() => apptData?.appointments ?? [], [apptData]);
   const todayAppts = myAppointments.filter((a) => isToday(a.appointmentDate));
   const upcomingAppts = myAppointments.filter((a) => !isToday(a.appointmentDate) && !a.status);
 
@@ -122,13 +182,13 @@ function DoctorPage() {
 
   const trendData = useMemo(() => {
     if (completedToday.length === 0) return [];
-    
+
     // Group completed appointments by hour (from 8am to 5pm by default, expanding if needed)
     const hourMap: Record<number, number> = {};
     for (let h = 8; h <= 17; h++) {
       hourMap[h] = 0;
     }
-    
+
     completedToday.forEach((a) => {
       if (a.appointmentDate) {
         try {
@@ -139,10 +199,12 @@ function DoctorPage() {
       }
     });
 
-    const hours = Object.keys(hourMap).map(Number).sort((a, b) => a - b);
+    const hours = Object.keys(hourMap)
+      .map(Number)
+      .sort((a, b) => a - b);
     return hours.map((h) => ({
       h: `${String(h).padStart(2, "0")}:00`,
-      seen: hourMap[h]
+      seen: hourMap[h],
     }));
   }, [completedToday]);
 
@@ -200,7 +262,11 @@ function DoctorPage() {
   return (
     <AppLayout
       title={loggedInDoctor ? ` ${loggedInDoctor.doctorName}` : "Doctor Console"}
-      subtitle={loggedInDoctor ? `${loggedInDoctor.qualifications} · ${loggedInDoctor.city}` : "Manage your queue and availability."}
+      subtitle={
+        loggedInDoctor
+          ? `${loggedInDoctor.qualifications} · ${loggedInDoctor.city}`
+          : "Manage your queue and availability."
+      }
     >
       {!selectedDoctorId ? (
         <div className="flex items-center justify-center py-32">
@@ -208,14 +274,22 @@ function DoctorPage() {
         </div>
       ) : (
         <div className="grid gap-6 lg:grid-cols-3">
-
           {/* ── Left: today's schedule ─────────────────────────────────────── */}
           <div className="lg:col-span-2 space-y-6">
-
             {/* KPI row */}
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-              <Stat k="Today's appointments" v={todayAppts.length} icon={CalendarDays} tone="primary" />
-              <Stat k="Completed" v={myAppointments.filter(a => a.status).length} icon={CheckCircle2} tone="success" />
+              <Stat
+                k="Today's appointments"
+                v={todayAppts.length}
+                icon={CalendarDays}
+                tone="primary"
+              />
+              <Stat
+                k="Completed"
+                v={myAppointments.filter((a) => a.status).length}
+                icon={CheckCircle2}
+                tone="success"
+              />
               <Stat k="Upcoming" v={upcomingAppts.length} icon={Clock} tone="warning" />
               <Stat k="Total patients" v={myAppointments.length} icon={Users} tone="info" />
             </div>
@@ -230,8 +304,10 @@ function DoctorPage() {
                 <table className="w-full text-sm">
                   <thead className="text-xs text-muted-foreground bg-surface">
                     <tr>
-                      {["Patient","Date","Reason","Status"].map(h => (
-                        <th key={h} className="text-left font-medium px-5 py-3">{h}</th>
+                      {["Patient", "Date", "Reason", "Status"].map((h) => (
+                        <th key={h} className="text-left font-medium px-5 py-3">
+                          {h}
+                        </th>
                       ))}
                     </tr>
                   </thead>
@@ -239,13 +315,22 @@ function DoctorPage() {
                     {apptLoading ? (
                       Array.from({ length: 3 }).map((_, i) => (
                         <tr key={i} className="border-t border-border">
-                          {[1,2,3,4].map(j => (
-                            <td key={j} className="px-5 py-3"><div className="h-4 rounded bg-muted animate-pulse w-24" /></td>
+                          {[1, 2, 3, 4].map((j) => (
+                            <td key={j} className="px-5 py-3">
+                              <div className="h-4 rounded bg-muted animate-pulse w-24" />
+                            </td>
                           ))}
                         </tr>
                       ))
                     ) : myAppointments.length === 0 ? (
-                      <tr><td colSpan={4} className="px-5 py-10 text-center text-muted-foreground text-sm">No appointments found for this doctor.</td></tr>
+                      <tr>
+                        <td
+                          colSpan={4}
+                          className="px-5 py-10 text-center text-muted-foreground text-sm"
+                        >
+                          No appointments found for this doctor.
+                        </td>
+                      </tr>
                     ) : (
                       myAppointments.slice(0, 8).map((a) => (
                         <tr key={a._id} className="border-t border-border hover:bg-muted/30">
@@ -253,10 +338,18 @@ function DoctorPage() {
                           <td className="px-5 py-3 text-muted-foreground whitespace-nowrap">
                             {a.appointmentDate ? formatDate(a.appointmentDate) : "—"}
                           </td>
-                          <td className="px-5 py-3 text-muted-foreground max-w-[180px] truncate">{a.problemDescription ?? "—"}</td>
+                          <td className="px-5 py-3 text-muted-foreground max-w-[180px] truncate">
+                            {a.problemDescription ?? "—"}
+                          </td>
                           <td className="px-5 py-3">
-                            <span className={cn("text-[11px] px-2 py-1 rounded-full font-medium",
-                              a.status ? "bg-success/15 text-success" : "bg-primary/10 text-primary")}>
+                            <span
+                              className={cn(
+                                "text-[11px] px-2 py-1 rounded-full font-medium",
+                                a.status
+                                  ? "bg-success/15 text-success"
+                                  : "bg-primary/10 text-primary",
+                              )}
+                            >
                               {a.status ? "Completed" : "Upcoming"}
                             </span>
                           </td>
@@ -271,13 +364,13 @@ function DoctorPage() {
 
           {/* ── Right: queue panel, chart, slot management ───────────────── */}
           <div className="space-y-6">
-
             {/* Live queue management panel */}
             {deptId && (
               <div className="rounded-2xl border border-border bg-card p-5 shadow-soft">
                 <div className="flex items-center justify-between mb-4">
                   <div className="text-sm font-semibold inline-flex items-center gap-2">
-                    <Users className="size-4 text-primary" /> Queue {doctor?.departmentId ? `Dept ${doctor.departmentId}` : "—"}
+                    <Users className="size-4 text-primary" /> Queue{" "}
+                    {doctor?.departmentId ? `Dept ${doctor.departmentId}` : "—"}
                   </div>
                   <span className="inline-flex items-center gap-1 text-xs text-success font-medium">
                     <span className="size-1.5 rounded-full bg-success" /> Live
@@ -287,50 +380,77 @@ function DoctorPage() {
                 {/* Stats row */}
                 <div className="grid grid-cols-3 gap-2 mb-4">
                   {[
-                    { l: "Serving", v: liveQueue?.currentServing ? `A-${String(liveQueue.currentServing).padStart(3,"0")}` : "—" },
+                    {
+                      l: "Serving",
+                      v: liveQueue?.currentServing
+                        ? `A-${String(liveQueue.currentServing).padStart(3, "0")}`
+                        : "—",
+                    },
                     { l: "Waiting", v: String(liveQueue?.waitingCount ?? 0) },
-                    { l: "Total",   v: String(liveQueue?.lastIssued ?? 0) },
+                    { l: "Total", v: String(liveQueue?.lastIssued ?? 0) },
                   ].map((s) => (
-                    <div key={s.l} className="rounded-xl bg-surface border border-border p-3 text-center">
-                      <div className="text-[10px] uppercase tracking-wider text-muted-foreground">{s.l}</div>
+                    <div
+                      key={s.l}
+                      className="rounded-xl bg-surface border border-border p-3 text-center"
+                    >
+                      <div className="text-[10px] uppercase tracking-wider text-muted-foreground">
+                        {s.l}
+                      </div>
                       <div className="text-lg font-semibold mt-0.5">{s.v}</div>
                     </div>
                   ))}
                 </div>
 
                 {/* Waiting list */}
-                {liveQueue && liveQueue.tokens.filter(t => t.status === "waiting").length > 0 && (
+                {liveQueue && liveQueue.tokens.filter((t) => t.status === "waiting").length > 0 && (
                   <ul className="mb-4 space-y-1.5 max-h-40 overflow-y-auto">
-                    {liveQueue.tokens.filter(t => t.status === "waiting").map((t) => (
-                      <li key={t.tokenNumber}
-                        className="flex items-center justify-between rounded-lg bg-surface px-3 py-2 text-sm">
-                        <span className="font-medium">{t.patientName}</span>
-                        <span className="text-xs text-muted-foreground font-mono">
-                          A-{String(t.tokenNumber).padStart(3, "0")}
-                        </span>
-                      </li>
-                    ))}
+                    {liveQueue.tokens
+                      .filter((t) => t.status === "waiting")
+                      .map((t) => (
+                        <li
+                          key={t.tokenNumber}
+                          className="flex items-center justify-between rounded-lg bg-surface px-3 py-2 text-sm"
+                        >
+                          <span className="font-medium">{t.patientName}</span>
+                          <span className="text-xs text-muted-foreground font-mono">
+                            A-{String(t.tokenNumber).padStart(3, "0")}
+                          </span>
+                        </li>
+                      ))}
                   </ul>
                 )}
 
                 {/* Call next button */}
                 <button
                   onClick={() => callNextMutation.mutate()}
-                  disabled={callNextMutation.isPending || !liveQueue || liveQueue.waitingCount === 0}
+                  disabled={
+                    callNextMutation.isPending || !liveQueue || liveQueue.waitingCount === 0
+                  }
                   className="w-full h-11 rounded-xl bg-primary text-primary-foreground text-sm font-semibold inline-flex items-center justify-center gap-2 disabled:opacity-50 mb-2"
                 >
-                  {callNextMutation.isPending
-                    ? <><Loader2 className="size-4 animate-spin" /> Calling…</>
-                    : <><Bell className="size-4" /> Call next patient</>}
+                  {callNextMutation.isPending ? (
+                    <>
+                      <Loader2 className="size-4 animate-spin" /> Calling…
+                    </>
+                  ) : (
+                    <>
+                      <Bell className="size-4" /> Call next patient
+                    </>
+                  )}
                 </button>
 
                 {/* Reset queue */}
                 <button
-                  onClick={() => { if (window.confirm("Reset today's queue for this department?")) resetQueueMutation.mutate(); }}
+                  onClick={() => {
+                    if (window.confirm("Reset today's queue for this department?"))
+                      resetQueueMutation.mutate();
+                  }}
                   disabled={resetQueueMutation.isPending}
                   className="w-full h-9 rounded-xl border border-destructive/30 text-destructive hover:bg-destructive/10 text-xs font-medium inline-flex items-center justify-center gap-2 disabled:opacity-50"
                 >
-                  {resetQueueMutation.isPending ? <Loader2 className="size-3 animate-spin" /> : null}
+                  {resetQueueMutation.isPending ? (
+                    <Loader2 className="size-3 animate-spin" />
+                  ) : null}
                   Reset today's queue
                 </button>
               </div>
@@ -345,11 +465,40 @@ function DoctorPage() {
                 <div className="h-36">
                   <ResponsiveContainer width="100%" height="100%">
                     <LineChart data={trendData}>
-                      <CartesianGrid stroke="var(--color-border)" strokeDasharray="3 3" vertical={false} />
-                      <XAxis dataKey="h" stroke="var(--color-muted-foreground)" fontSize={10} tickLine={false} axisLine={false} />
-                      <YAxis stroke="var(--color-muted-foreground)" fontSize={10} tickLine={false} axisLine={false} width={20} />
-                      <Tooltip contentStyle={{ background: "var(--color-card)", border: "1px solid var(--color-border)", borderRadius: 12, fontSize: 12 }} />
-                      <Line type="monotone" dataKey="seen" stroke="var(--color-primary)" strokeWidth={2.5} dot={false} />
+                      <CartesianGrid
+                        stroke="var(--color-border)"
+                        strokeDasharray="3 3"
+                        vertical={false}
+                      />
+                      <XAxis
+                        dataKey="h"
+                        stroke="var(--color-muted-foreground)"
+                        fontSize={10}
+                        tickLine={false}
+                        axisLine={false}
+                      />
+                      <YAxis
+                        stroke="var(--color-muted-foreground)"
+                        fontSize={10}
+                        tickLine={false}
+                        axisLine={false}
+                        width={20}
+                      />
+                      <Tooltip
+                        contentStyle={{
+                          background: "var(--color-card)",
+                          border: "1px solid var(--color-border)",
+                          borderRadius: 12,
+                          fontSize: 12,
+                        }}
+                      />
+                      <Line
+                        type="monotone"
+                        dataKey="seen"
+                        stroke="var(--color-primary)"
+                        strokeWidth={2.5}
+                        dot={false}
+                      />
                     </LineChart>
                   </ResponsiveContainer>
                 </div>
@@ -366,7 +515,10 @@ function DoctorPage() {
                   type="date"
                   value={slotDate}
                   min={todayPlus(0)}
-                  onChange={(e) => { setSlotDate(e.target.value); setSelectedSlots([]); }}
+                  onChange={(e) => {
+                    setSlotDate(e.target.value);
+                    setSelectedSlots([]);
+                  }}
                   className="mt-1 w-full h-10 px-3 rounded-xl border border-input bg-surface text-sm focus:outline-none focus:ring-2 focus:ring-ring/40"
                 />
               </label>
@@ -374,13 +526,20 @@ function DoctorPage() {
               {/* Existing slots on this date */}
               {slotsOnDate.length > 0 && (
                 <div className="mb-3">
-                  <div className="text-xs text-muted-foreground mb-2">Current slots on {formatDate(slotDate)}</div>
+                  <div className="text-xs text-muted-foreground mb-2">
+                    Current slots on {formatDate(slotDate)}
+                  </div>
                   <div className="flex flex-wrap gap-1.5">
                     {slotsOnDate.map((s) => (
-                      <span key={s} className="inline-flex items-center gap-1 h-7 px-2.5 rounded-lg bg-success/10 text-success text-xs font-medium">
+                      <span
+                        key={s}
+                        className="inline-flex items-center gap-1 h-7 px-2.5 rounded-lg bg-success/10 text-success text-xs font-medium"
+                      >
                         {s}
-                        <button onClick={() => removeSlotMutation.mutate({ date: slotDate, slot: s })}
-                          className="hover:text-destructive">
+                        <button
+                          onClick={() => removeSlotMutation.mutate({ date: slotDate, slot: s })}
+                          className="hover:text-destructive"
+                        >
                           <Trash2 className="size-3" />
                         </button>
                       </span>
@@ -392,13 +551,21 @@ function DoctorPage() {
               {/* Add new slots */}
               <div className="text-xs text-muted-foreground mb-2">Add slots</div>
               <div className="grid grid-cols-4 gap-1.5 mb-4">
-                {DEFAULT_SLOTS.filter(s => !slotsOnDate.includes(s)).map((s) => (
-                  <button key={s} onClick={() => setSelectedSlots(prev =>
-                    prev.includes(s) ? prev.filter(x => x !== s) : [...prev, s])}
-                    className={cn("h-8 rounded-lg border text-xs font-medium transition-colors",
+                {DEFAULT_SLOTS.filter((s) => !slotsOnDate.includes(s)).map((s) => (
+                  <button
+                    key={s}
+                    onClick={() =>
+                      setSelectedSlots((prev) =>
+                        prev.includes(s) ? prev.filter((x) => x !== s) : [...prev, s],
+                      )
+                    }
+                    className={cn(
+                      "h-8 rounded-lg border text-xs font-medium transition-colors",
                       selectedSlots.includes(s)
                         ? "border-primary bg-primary text-primary-foreground"
-                        : "border-border bg-surface hover:bg-muted")}>
+                        : "border-border bg-surface hover:bg-muted",
+                    )}
+                  >
                     {s}
                   </button>
                 ))}
@@ -409,12 +576,19 @@ function DoctorPage() {
                 disabled={selectedSlots.length === 0 || addSlotsMutation.isPending}
                 className="w-full h-10 rounded-xl bg-primary text-primary-foreground text-sm font-medium inline-flex items-center justify-center gap-2 disabled:opacity-50"
               >
-                {addSlotsMutation.isPending
-                  ? <><Loader2 className="size-4 animate-spin" /> Saving…</>
-                  : <><Plus className="size-4" /> Add {selectedSlots.length > 0 ? selectedSlots.length : ""} slot{selectedSlots.length !== 1 ? "s" : ""}</>}
+                {addSlotsMutation.isPending ? (
+                  <>
+                    <Loader2 className="size-4 animate-spin" /> Saving…
+                  </>
+                ) : (
+                  <>
+                    <Plus className="size-4" /> Add{" "}
+                    {selectedSlots.length > 0 ? selectedSlots.length : ""} slot
+                    {selectedSlots.length !== 1 ? "s" : ""}
+                  </>
+                )}
               </button>
             </div>
-
           </div>
         </div>
       )}
@@ -431,14 +605,25 @@ function EmptyState() {
       <div>
         <h2 className="text-lg font-semibold">Select a doctor to begin</h2>
         <p className="text-sm text-muted-foreground mt-1 max-w-sm">
-          Use the dropdown above to view a doctor's schedule, appointments, and manage their availability slots.
+          Use the dropdown above to view a doctor's schedule, appointments, and manage their
+          availability slots.
         </p>
       </div>
     </div>
   );
 }
 
-function Stat({ k, v, icon: Icon, tone }: { k: string; v: number; icon: React.ElementType; tone: "primary" | "success" | "warning" | "info" }) {
+function Stat({
+  k,
+  v,
+  icon: Icon,
+  tone,
+}: {
+  k: string;
+  v: number;
+  icon: React.ElementType;
+  tone: "primary" | "success" | "warning" | "info";
+}) {
   const tones: Record<string, string> = {
     primary: "bg-primary/10 text-primary",
     success: "bg-success/15 text-success",
@@ -448,8 +633,12 @@ function Stat({ k, v, icon: Icon, tone }: { k: string; v: number; icon: React.El
   return (
     <div className="rounded-2xl border border-border bg-card p-4 shadow-soft">
       <div className="flex items-center justify-between">
-        <div className="text-xs uppercase tracking-wider text-muted-foreground leading-tight">{k}</div>
-        <div className={cn("size-8 rounded-lg grid place-items-center", tones[tone])}><Icon className="size-4" /></div>
+        <div className="text-xs uppercase tracking-wider text-muted-foreground leading-tight">
+          {k}
+        </div>
+        <div className={cn("size-8 rounded-lg grid place-items-center", tones[tone])}>
+          <Icon className="size-4" />
+        </div>
       </div>
       <div className="mt-2 text-2xl font-semibold tracking-tight">{v}</div>
     </div>

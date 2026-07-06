@@ -4,9 +4,22 @@ import { useState, useEffect, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import {
-  Calendar, Clock, FileText, Bell, Activity,
-  X, RotateCcw, ChevronRight, HeartPulse, Loader2,
-  AlertCircle, CheckCircle2, LogIn, WifiOff, Users, Star,
+  Calendar,
+  Clock,
+  FileText,
+  Bell,
+  Activity,
+  X,
+  RotateCcw,
+  ChevronRight,
+  HeartPulse,
+  Loader2,
+  AlertCircle,
+  CheckCircle2,
+  LogIn,
+  WifiOff,
+  Users,
+  Star,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { appointmentApi, queueApi, doctorApi, type BackendAppointment } from "@/lib/api";
@@ -247,7 +260,6 @@ function PatientDashboard() {
         }
       >
         <div className="grid lg:grid-cols-3 gap-6">
-
           {/* ── Queue card — LIVE ───────────────────────────────────────────── */}
           <QueueCard />
 
@@ -265,8 +277,8 @@ function PatientDashboard() {
                     r.tone === "success"
                       ? "border-emerald-500/20 bg-emerald-500/5 text-emerald-800 dark:text-emerald-300"
                       : r.tone === "warning"
-                      ? "border-amber-500/20 bg-amber-500/5 text-amber-800 dark:text-amber-300"
-                      : "border-border bg-surface text-foreground"
+                        ? "border-amber-500/20 bg-amber-500/5 text-amber-800 dark:text-amber-300"
+                        : "border-border bg-surface text-foreground",
                   )}
                 >
                   <div className="font-semibold text-xs tracking-tight">{r.title}</div>
@@ -280,7 +292,9 @@ function PatientDashboard() {
           <section className="lg:col-span-2 rounded-2xl border border-border bg-card p-6 shadow-soft">
             <div className="flex items-center justify-between">
               <div className="text-sm font-semibold">Upcoming appointments</div>
-              <Link to="/book" className="text-xs text-primary font-medium">Book new</Link>
+              <Link to="/book" className="text-xs text-primary font-medium">
+                Book new
+              </Link>
             </div>
 
             {apptLoading ? (
@@ -292,13 +306,20 @@ function PatientDashboard() {
             ) : apptError ? (
               <div className="mt-6 flex items-center gap-3 text-sm text-muted-foreground">
                 <WifiOff className="size-4" />
-                <span>Could not load appointments. <button onClick={() => refetch()} className="text-primary underline">Retry</button></span>
+                <span>
+                  Could not load appointments.{" "}
+                  <button onClick={() => refetch()} className="text-primary underline">
+                    Retry
+                  </button>
+                </span>
               </div>
             ) : upcoming.length === 0 ? (
               <div className="mt-6 flex flex-col items-center py-10 text-center gap-3">
                 <Calendar className="size-8 text-muted-foreground" />
                 <div className="text-sm text-muted-foreground">No upcoming appointments.</div>
-                <Link to="/book" className="text-sm text-primary font-medium hover:underline">Book your first appointment →</Link>
+                <Link to="/book" className="text-sm text-primary font-medium hover:underline">
+                  Book your first appointment →
+                </Link>
               </div>
             ) : (
               <ul className="mt-4 divide-y divide-border">
@@ -398,7 +419,9 @@ function AppointmentRow({
             <span
               className={cn(
                 "text-[11px] px-2 py-0.5 rounded-full font-medium shrink-0",
-                badgeTone === "primary" ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground"
+                badgeTone === "primary"
+                  ? "bg-primary/10 text-primary"
+                  : "bg-muted text-muted-foreground",
               )}
             >
               {badge}
@@ -498,11 +521,21 @@ function QueueCard() {
           ) : myToken ? (
             <>
               <div className="mt-2 flex items-end gap-3">
-                <div className="text-5xl font-semibold tracking-tight">{fmt(myToken.tokenNumber)}</div>
-                <span className={cn("mb-1.5 text-sm inline-flex items-center gap-1",
-                  myToken.status === "serving" ? "text-success" : "text-primary")}>
-                  <span className={cn("size-1.5 rounded-full",
-                    myToken.status === "serving" ? "bg-success" : "bg-primary")} />
+                <div className="text-5xl font-semibold tracking-tight">
+                  {fmt(myToken.tokenNumber)}
+                </div>
+                <span
+                  className={cn(
+                    "mb-1.5 text-sm inline-flex items-center gap-1",
+                    myToken.status === "serving" ? "text-success" : "text-primary",
+                  )}
+                >
+                  <span
+                    className={cn(
+                      "size-1.5 rounded-full",
+                      myToken.status === "serving" ? "bg-success" : "bg-primary",
+                    )}
+                  />
                   {myToken.status === "serving" ? "Your turn!" : "In queue"}
                 </span>
               </div>
@@ -510,19 +543,24 @@ function QueueCard() {
                 {myToken.status === "serving"
                   ? "Please head to the consultation room now."
                   : myToken.position > 0
-                  ? `${myToken.position} patient${myToken.position !== 1 ? "s" : ""} ahead of you`
-                  : "You're next!"}
+                    ? `${myToken.position} patient${myToken.position !== 1 ? "s" : ""} ahead of you`
+                    : "You're next!"}
               </div>
             </>
           ) : (
             <>
               <div className="mt-2 text-2xl font-semibold text-muted-foreground">Not in queue</div>
-              <div className="mt-1 text-sm text-muted-foreground">You haven't joined a department queue today.</div>
+              <div className="mt-1 text-sm text-muted-foreground">
+                You haven't joined a department queue today.
+              </div>
             </>
           )}
         </div>
 
-        <Link to="/queue" className="text-sm font-medium text-primary inline-flex items-center gap-1">
+        <Link
+          to="/queue"
+          className="text-sm font-medium text-primary inline-flex items-center gap-1"
+        >
           View live queue <ChevronRight className="size-4" />
         </Link>
       </div>
@@ -535,7 +573,7 @@ function QueueCard() {
               const color = getSegmentColor(idx, liveQueue.tokens.length);
               const isHovered = hoveredToken === token.tokenNumber;
               const isClicked = clickedToken === token.tokenNumber;
-              
+
               return (
                 <div
                   key={token.tokenNumber}
@@ -543,32 +581,47 @@ function QueueCard() {
                   style={{ backgroundColor: color }}
                   onMouseEnter={() => setHoveredToken(token.tokenNumber)}
                   onMouseLeave={() => setHoveredToken(null)}
-                  onClick={() => setClickedToken(clickedToken === token.tokenNumber ? null : token.tokenNumber)}
+                  onClick={() =>
+                    setClickedToken(clickedToken === token.tokenNumber ? null : token.tokenNumber)
+                  }
                 >
                   {/* Tooltip */}
                   {(isHovered || isClicked) && (
                     <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-56 p-3 bg-popover/95 backdrop-blur-md text-popover-foreground border border-border rounded-xl shadow-xl z-50 text-xs pointer-events-none">
                       <div className="flex items-center justify-between font-semibold text-sm mb-1.5 border-b border-border pb-1">
                         <span className="truncate max-w-[120px]">{token.patientName}</span>
-                        <span className={cn("text-[9px] px-1.5 py-0.5 rounded-full font-bold",
-                          token.status === "serving" ? "bg-success/20 text-success" :
-                          token.status === "done" ? "bg-muted text-muted-foreground" : "bg-primary/20 text-primary"
-                        )}>
+                        <span
+                          className={cn(
+                            "text-[9px] px-1.5 py-0.5 rounded-full font-bold",
+                            token.status === "serving"
+                              ? "bg-success/20 text-success"
+                              : token.status === "done"
+                                ? "bg-muted text-muted-foreground"
+                                : "bg-primary/20 text-primary",
+                          )}
+                        >
                           {token.status.toUpperCase()}
                         </span>
                       </div>
                       <div className="space-y-1 text-muted-foreground">
                         <div className="flex justify-between">
                           <span>Token:</span>
-                          <span className="font-mono text-foreground font-semibold">A-{String(token.tokenNumber).padStart(3, "0")}</span>
+                          <span className="font-mono text-foreground font-semibold">
+                            A-{String(token.tokenNumber).padStart(3, "0")}
+                          </span>
                         </div>
                         <div className="flex justify-between">
                           <span>Time:</span>
-                          <span className="font-mono text-foreground font-semibold">{formatTime(token.issuedAt)}</span>
+                          <span className="font-mono text-foreground font-semibold">
+                            {formatTime(token.issuedAt)}
+                          </span>
                         </div>
                         <div className="flex justify-between gap-2">
                           <span>Patient ID:</span>
-                          <span className="font-mono text-foreground font-semibold truncate max-w-[110px]" title={token.patientId}>
+                          <span
+                            className="font-mono text-foreground font-semibold truncate max-w-[110px]"
+                            title={token.patientId}
+                          >
                             {token.patientId}
                           </span>
                         </div>
@@ -581,7 +634,9 @@ function QueueCard() {
             })}
           </div>
           <div className="mt-2 flex items-center justify-between text-xs text-muted-foreground">
-            <span>Now serving: {fmt(liveQueue.currentServing)} ({progressLabel})</span>
+            <span>
+              Now serving: {fmt(liveQueue.currentServing)} ({progressLabel})
+            </span>
             <span className="inline-flex items-center gap-1 text-success font-medium">
               <span className="size-1.5 rounded-full bg-success" /> Live via SSE
             </span>
@@ -594,21 +649,32 @@ function QueueCard() {
         {myToken ? (
           <>
             <button
-              onClick={() => { if (window.confirm("Leave this queue? You'll lose your place.")) leaveMutation.mutate(); }}
+              onClick={() => {
+                if (window.confirm("Leave this queue? You'll lose your place."))
+                  leaveMutation.mutate();
+              }}
               disabled={leaveMutation.isPending || myToken.status === "serving"}
               className="h-10 px-4 rounded-xl border border-destructive/30 text-destructive hover:bg-destructive/10 text-sm font-medium inline-flex items-center gap-2 disabled:opacity-50"
             >
-              {leaveMutation.isPending ? <Loader2 className="size-4 animate-spin" /> : <X className="size-4" />}
+              {leaveMutation.isPending ? (
+                <Loader2 className="size-4 animate-spin" />
+              ) : (
+                <X className="size-4" />
+              )}
               Leave queue
             </button>
-            <Link to="/queue"
-              className="h-10 px-4 rounded-xl border border-border bg-surface hover:bg-muted text-sm font-medium inline-flex items-center gap-2">
+            <Link
+              to="/queue"
+              className="h-10 px-4 rounded-xl border border-border bg-surface hover:bg-muted text-sm font-medium inline-flex items-center gap-2"
+            >
               <Users className="size-4" /> Queue details
             </Link>
           </>
         ) : (
-          <Link to="/queue"
-            className="h-10 px-4 rounded-xl bg-primary text-primary-foreground text-sm font-medium inline-flex items-center gap-2">
+          <Link
+            to="/queue"
+            className="h-10 px-4 rounded-xl bg-primary text-primary-foreground text-sm font-medium inline-flex items-center gap-2"
+          >
             <Users className="size-4" /> Join a queue
           </Link>
         )}
@@ -629,7 +695,7 @@ function StarRating({
 }) {
   const qc = useQueryClient();
   const storageKey = `mq_rated_${appointmentId}`;
-  
+
   // Local state initialized from localStorage
   const [ratedVal, setRatedVal] = useState<number>(() => {
     if (typeof window !== "undefined") {
@@ -637,7 +703,7 @@ function StarRating({
     }
     return 0;
   });
-  
+
   const [hoverVal, setHoverVal] = useState<number | null>(null);
 
   const mutation = useMutation({
@@ -674,7 +740,7 @@ function StarRating({
               onClick={() => mutation.mutate(starVal)}
               className={cn(
                 "p-0.5 rounded transition-all",
-                ratedVal > 0 ? "cursor-default" : "hover:scale-125 hover:bg-muted cursor-pointer"
+                ratedVal > 0 ? "cursor-default" : "hover:scale-125 hover:bg-muted cursor-pointer",
               )}
             >
               <Star
@@ -682,7 +748,7 @@ function StarRating({
                   "size-4.5 transition-colors",
                   starVal <= displayStars
                     ? "fill-amber-400 text-amber-400"
-                    : "text-muted-foreground/30"
+                    : "text-muted-foreground/30",
                 )}
               />
             </button>

@@ -23,12 +23,16 @@ import {
 import { authApi, doctorApi, departmentApi } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import { cn } from "@/lib/utils";
+import { ThemeToggle } from "@/components/theme-toggle";
 
 export const Route = createFileRoute("/login")({
   head: () => ({
     meta: [
       { title: "Sign In — Mediqueue" },
-      { name: "description", content: "Sign in or create a Mediqueue account to book appointments and track your queue." },
+      {
+        name: "description",
+        content: "Sign in or create a Mediqueue account to book appointments and track your queue.",
+      },
     ],
   }),
   component: LoginPage,
@@ -38,16 +42,49 @@ type Tab = "signin" | "signup";
 type Role = "patient" | "doctor";
 
 const features = [
-  { icon: Clock, title: "Skip the waiting room", desc: "Join the queue from home and arrive exactly on time." },
-  { icon: ShieldCheck, title: "Secure & HIPAA compliant", desc: "Your health data is encrypted end-to-end." },
-  { icon: HeartPulse, title: "Real-time updates", desc: "Live queue tracking across all departments." },
+  {
+    icon: Clock,
+    title: "Skip the waiting room",
+    desc: "Join the queue from home and arrive exactly on time.",
+  },
+  {
+    icon: ShieldCheck,
+    title: "Secure & HIPAA compliant",
+    desc: "Your health data is encrypted end-to-end.",
+  },
+  {
+    icon: HeartPulse,
+    title: "Real-time updates",
+    desc: "Live queue tracking across all departments.",
+  },
 ];
 
 const NIGERIAN_CITIES = [
-  "Lagos", "Abuja", "Kano", "Ibadan", "Port Harcourt", "Benin City",
-  "Maiduguri", "Enugu", "Kaduna", "Ilorin", "Onitsha", "Warri",
-  "Aba", "Owerri", "Abeokuta", "Sokoto", "Uyo", "Calabar",
-  "Akure", "Jos", "Bauchi", "Zaria", "Asaba", "Yola", "Minna",
+  "Lagos",
+  "Abuja",
+  "Kano",
+  "Ibadan",
+  "Port Harcourt",
+  "Benin City",
+  "Maiduguri",
+  "Enugu",
+  "Kaduna",
+  "Ilorin",
+  "Onitsha",
+  "Warri",
+  "Aba",
+  "Owerri",
+  "Abeokuta",
+  "Sokoto",
+  "Uyo",
+  "Calabar",
+  "Akure",
+  "Jos",
+  "Bauchi",
+  "Zaria",
+  "Asaba",
+  "Yola",
+  "Minna",
 ];
 
 const SPECIALTIES = [
@@ -136,15 +173,17 @@ function LoginPage() {
         // 2. Enforce doctor profile exists
         const allDocRes = await doctorApi.getAll();
         const matchedDoctor = (allDocRes?.doctor ?? []).find(
-          (d) => d.email.toLowerCase() === siPayload.toLowerCase() || d.phoneNo === siPayload
+          (d) => d.email.toLowerCase() === siPayload.toLowerCase() || d.phoneNo === siPayload,
         );
 
         if (!matchedDoctor) {
           // Log out and throw access error if profile does not exist
           logout();
-          throw new Error("Access Denied: This account is not registered as a doctor. Please register via the Doctor Sign Up portal first.");
+          throw new Error(
+            "Access Denied: This account is not registered as a doctor. Please register via the Doctor Sign Up portal first.",
+          );
         }
-        
+
         navigate({ to: "/doctor" });
       } else {
         navigate({ to: "/patient" });
@@ -163,7 +202,9 @@ function LoginPage() {
     try {
       if (role === "doctor") {
         if (!docQualifications || !docExperience.trim() || !docCity) {
-          throw new Error("All professional credentials (Specialty, Experience, City) are required for doctors.");
+          throw new Error(
+            "All professional credentials (Specialty, Experience, City) are required for doctors.",
+          );
         }
       }
 
@@ -204,7 +245,10 @@ function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen bg-background flex">
+    <div className="min-h-screen bg-background flex relative">
+      <div className="absolute top-4 right-4 z-50">
+        <ThemeToggle />
+      </div>
       {/* ── Left panel (branding) ─────────────────────────────────────────── */}
       <div className="hidden lg:flex lg:w-[52%] relative overflow-hidden bg-gradient-to-br from-primary/90 via-primary to-primary/70 flex-col justify-between p-12">
         {/* Background grid */}
@@ -234,7 +278,8 @@ function LoginPage() {
               transition={{ duration: 0.6 }}
               className="text-4xl font-bold text-white leading-tight"
             >
-              Healthcare that<br />
+              Healthcare that
+              <br />
               <span className="text-white/80">respects your time.</span>
             </motion.h1>
             <motion.p
@@ -275,10 +320,11 @@ function LoginPage() {
           className="relative z-10 rounded-2xl bg-white/10 backdrop-blur-md border border-white/20 p-5"
         >
           <div className="flex items-center justify-between mb-3">
-            <span className="text-white/80 text-xs font-medium uppercase tracking-wider">Cardiology Live</span>
+            <span className="text-white/80 text-xs font-medium uppercase tracking-wider">
+              Cardiology Live
+            </span>
             <span className="flex items-center gap-1.5 text-xs font-medium bg-white/20 text-white px-2.5 py-1 rounded-full">
-              <span className="size-1.5 rounded-full bg-green-400 animate-pulse" />
-              4 in queue
+              <span className="size-1.5 rounded-full bg-green-400 animate-pulse" />4 in queue
             </span>
           </div>
           <div className="grid grid-cols-3 gap-2 text-center">
@@ -287,7 +333,7 @@ function LoginPage() {
                 key={n}
                 className={cn(
                   "rounded-xl py-3 text-sm font-semibold",
-                  i === 1 ? "bg-white text-primary" : "bg-white/15 text-white"
+                  i === 1 ? "bg-white text-primary" : "bg-white/15 text-white",
                 )}
               >
                 {n}
@@ -326,7 +372,7 @@ function LoginPage() {
                   "flex-1 h-10 rounded-lg text-xs font-semibold uppercase tracking-wider transition-all inline-flex items-center justify-center gap-1.5",
                   role === r
                     ? "bg-card text-primary shadow-sm border border-border"
-                    : "text-muted-foreground hover:text-foreground"
+                    : "text-muted-foreground hover:text-foreground",
                 )}
               >
                 {r === "patient" ? (
@@ -347,12 +393,16 @@ function LoginPage() {
             {(["signin", "signup"] as Tab[]).map((t) => (
               <button
                 key={t}
-                onClick={() => { setTab(t); setError(null); setSuccessMsg(null); }}
+                onClick={() => {
+                  setTab(t);
+                  setError(null);
+                  setSuccessMsg(null);
+                }}
                 className={cn(
                   "flex-1 h-9 rounded-lg text-sm font-medium transition-all",
                   tab === t
                     ? "bg-card text-foreground shadow-sm"
-                    : "text-muted-foreground hover:text-foreground"
+                    : "text-muted-foreground hover:text-foreground",
                 )}
               >
                 {t === "signin" ? "Sign In" : "Create Account"}
@@ -374,12 +424,16 @@ function LoginPage() {
                   {role === "doctor" ? (
                     <>
                       <h2 className="text-2xl font-bold text-foreground">Doctor Portal Login</h2>
-                      <p className="text-muted-foreground text-sm mt-1">Sign in to manage your appointments and queue.</p>
+                      <p className="text-muted-foreground text-sm mt-1">
+                        Sign in to manage your appointments and queue.
+                      </p>
                     </>
                   ) : (
                     <>
                       <h2 className="text-2xl font-bold text-foreground">Welcome back</h2>
-                      <p className="text-muted-foreground text-sm mt-1">Sign in with your email or mobile number.</p>
+                      <p className="text-muted-foreground text-sm mt-1">
+                        Sign in with your email or mobile number.
+                      </p>
                     </>
                   )}
                 </div>
@@ -423,7 +477,13 @@ function LoginPage() {
                     disabled={loading}
                     className="w-full h-12 rounded-xl bg-primary text-primary-foreground font-semibold text-sm inline-flex items-center justify-center gap-2 hover:opacity-90 disabled:opacity-60 transition-opacity"
                   >
-                    {loading ? <Loader2 className="size-4 animate-spin" /> : <>Sign In <ArrowRight className="size-4" /></>}
+                    {loading ? (
+                      <Loader2 className="size-4 animate-spin" />
+                    ) : (
+                      <>
+                        Sign In <ArrowRight className="size-4" />
+                      </>
+                    )}
                   </button>
                 </form>
               </motion.div>
@@ -441,13 +501,19 @@ function LoginPage() {
                 <div className="mb-6">
                   {role === "doctor" ? (
                     <>
-                      <h2 className="text-2xl font-bold text-foreground">Doctor Console Registration</h2>
-                      <p className="text-muted-foreground text-sm mt-1">Register your professional medical profile.</p>
+                      <h2 className="text-2xl font-bold text-foreground">
+                        Doctor Console Registration
+                      </h2>
+                      <p className="text-muted-foreground text-sm mt-1">
+                        Register your professional medical profile.
+                      </p>
                     </>
                   ) : (
                     <>
                       <h2 className="text-2xl font-bold text-foreground">Create your account</h2>
-                      <p className="text-muted-foreground text-sm mt-1">Fill in your details to get started.</p>
+                      <p className="text-muted-foreground text-sm mt-1">
+                        Fill in your details to get started.
+                      </p>
                     </>
                   )}
                 </div>
@@ -460,11 +526,47 @@ function LoginPage() {
 
                 <form onSubmit={handleSignUp} className="space-y-4" id="signup-form">
                   <div className="grid grid-cols-2 gap-3">
-                    <FormField id="su-first" label="First name" icon={<User className="size-4" />} type="text" placeholder="Sara" value={suFirstName} onChange={setSuFirstName} required />
-                    <FormField id="su-last" label="Last name" icon={<User className="size-4" />} type="text" placeholder="Ahmed" value={suLastName} onChange={setSuLastName} required />
+                    <FormField
+                      id="su-first"
+                      label="First name"
+                      icon={<User className="size-4" />}
+                      type="text"
+                      placeholder="Sara"
+                      value={suFirstName}
+                      onChange={setSuFirstName}
+                      required
+                    />
+                    <FormField
+                      id="su-last"
+                      label="Last name"
+                      icon={<User className="size-4" />}
+                      type="text"
+                      placeholder="Ahmed"
+                      value={suLastName}
+                      onChange={setSuLastName}
+                      required
+                    />
                   </div>
-                  <FormField id="su-email" label="Email" icon={<Mail className="size-4" />} type="email" placeholder="sara@example.com" value={suEmail} onChange={setSuEmail} required />
-                  <FormField id="su-mobile" label="Mobile" icon={<Phone className="size-4" />} type="tel" placeholder="+1 555 000 0000" value={suMobile} onChange={setSuMobile} required />
+                  <FormField
+                    id="su-email"
+                    label="Email"
+                    icon={<Mail className="size-4" />}
+                    type="email"
+                    placeholder="sara@example.com"
+                    value={suEmail}
+                    onChange={setSuEmail}
+                    required
+                  />
+                  <FormField
+                    id="su-mobile"
+                    label="Mobile"
+                    icon={<Phone className="size-4" />}
+                    type="tel"
+                    placeholder="+1 555 000 0000"
+                    value={suMobile}
+                    onChange={setSuMobile}
+                    required
+                  />
 
                   {/* Doctor-only Fields */}
                   {role === "doctor" && (
@@ -520,8 +622,21 @@ function LoginPage() {
                   )}
 
                   <div className="relative">
-                    <FormField id="su-password" label="Password" icon={<Lock className="size-4" />} type={showPassword ? "text" : "password"} placeholder="Create a password" value={suPassword} onChange={setSuPassword} required />
-                    <button type="button" onClick={() => setShowPassword((v) => !v)} className="absolute right-3 bottom-3 text-muted-foreground hover:text-foreground">
+                    <FormField
+                      id="su-password"
+                      label="Password"
+                      icon={<Lock className="size-4" />}
+                      type={showPassword ? "text" : "password"}
+                      placeholder="Create a password"
+                      value={suPassword}
+                      onChange={setSuPassword}
+                      required
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword((v) => !v)}
+                      className="absolute right-3 bottom-3 text-muted-foreground hover:text-foreground"
+                    >
                       {showPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
                     </button>
                   </div>
@@ -534,7 +649,13 @@ function LoginPage() {
                     disabled={loading}
                     className="w-full h-12 rounded-xl bg-primary text-primary-foreground font-semibold text-sm inline-flex items-center justify-center gap-2 hover:opacity-90 disabled:opacity-60 transition-opacity"
                   >
-                    {loading ? <Loader2 className="size-4 animate-spin" /> : <>Create Account <ArrowRight className="size-4" /></>}
+                    {loading ? (
+                      <Loader2 className="size-4 animate-spin" />
+                    ) : (
+                      <>
+                        Create Account <ArrowRight className="size-4" />
+                      </>
+                    )}
                   </button>
                 </form>
               </motion.div>
@@ -543,7 +664,8 @@ function LoginPage() {
 
           <p className="mt-6 text-center text-xs text-muted-foreground">
             By continuing you agree to our{" "}
-            <span className="underline cursor-pointer hover:text-foreground">Terms of Service</span> and{" "}
+            <span className="underline cursor-pointer hover:text-foreground">Terms of Service</span>{" "}
+            and{" "}
             <span className="underline cursor-pointer hover:text-foreground">Privacy Policy</span>.
           </p>
         </div>

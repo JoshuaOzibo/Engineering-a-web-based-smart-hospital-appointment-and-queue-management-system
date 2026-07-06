@@ -5,17 +5,49 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { useAuth } from "@/lib/auth";
 import {
-  User, Stethoscope, Loader2, MapPin, Lock, Eye, EyeOff,
-  Phone, Briefcase, Award, ShieldAlert, CheckCircle2, Mail
+  User,
+  Stethoscope,
+  Loader2,
+  MapPin,
+  Lock,
+  Eye,
+  EyeOff,
+  Phone,
+  Briefcase,
+  Award,
+  ShieldAlert,
+  CheckCircle2,
+  Mail,
 } from "lucide-react";
 import { doctorApi, departmentApi, authApi } from "@/lib/api";
 import { cn } from "@/lib/utils";
 
 const NIGERIAN_CITIES = [
-  "Lagos", "Abuja", "Kano", "Ibadan", "Port Harcourt", "Benin City",
-  "Maiduguri", "Enugu", "Kaduna", "Ilorin", "Onitsha", "Warri",
-  "Aba", "Owerri", "Abeokuta", "Sokoto", "Uyo", "Calabar",
-  "Akure", "Jos", "Bauchi", "Zaria", "Asaba", "Yola", "Minna",
+  "Lagos",
+  "Abuja",
+  "Kano",
+  "Ibadan",
+  "Port Harcourt",
+  "Benin City",
+  "Maiduguri",
+  "Enugu",
+  "Kaduna",
+  "Ilorin",
+  "Onitsha",
+  "Warri",
+  "Aba",
+  "Owerri",
+  "Abeokuta",
+  "Sokoto",
+  "Uyo",
+  "Calabar",
+  "Akure",
+  "Jos",
+  "Bauchi",
+  "Zaria",
+  "Asaba",
+  "Yola",
+  "Minna",
 ];
 
 const SPECIALTIES = [
@@ -78,15 +110,18 @@ function ProfilePage() {
   const [profileAvail, setProfileAvail] = useState(true);
 
   // Retrieve admin session (admin can view/edit profile pages)
-  const adminSession = typeof window !== "undefined"
-    ? (() => {
-        try {
-          return JSON.parse(localStorage.getItem("mq_admin") ?? "null") as { email: string } | null;
-        } catch {
-          return null;
-        }
-      })()
-    : null;
+  const adminSession =
+    typeof window !== "undefined"
+      ? (() => {
+          try {
+            return JSON.parse(localStorage.getItem("mq_admin") ?? "null") as {
+              email: string;
+            } | null;
+          } catch {
+            return null;
+          }
+        })()
+      : null;
   const isAdmin = !!adminSession;
 
   // ── Fetch all doctors & departments ──────────────────────────────────────────
@@ -103,7 +138,7 @@ function ProfilePage() {
     staleTime: 1000 * 60 * 5,
   });
   const departments = useMemo(() => departmentData ?? [], [departmentData]);
-  
+
   // Find currently logged-in doctor
   const myDoctorProfile = useMemo(() => {
     const email = user?.email || adminSession?.email;
@@ -143,7 +178,7 @@ function ProfilePage() {
       setLastName(user.last_name ?? "");
       setEmailState(user.email ?? "");
       setMobileState(user.mobile ?? "");
-      
+
       // Auto-prefill professional details for doctor registration
       if (showDoctorRegister || isDoctor) {
         setProfileName((prev) => prev || `Dr. ${user.name ?? ""} ${user.last_name ?? ""}`.trim());
@@ -158,8 +193,17 @@ function ProfilePage() {
       const email = user?.email || adminSession?.email;
       if (!email) throw new Error("No authenticated email address found.");
 
-      if (!profileName.trim() || !profileQuals.trim() || !profileExp.trim() || !profilePhone.trim() || !profileCity.trim() || !profileDeptId) {
-        throw new Error("All fields (Name, Specialty, Experience, Phone, City, Department) are required.");
+      if (
+        !profileName.trim() ||
+        !profileQuals.trim() ||
+        !profileExp.trim() ||
+        !profilePhone.trim() ||
+        !profileCity.trim() ||
+        !profileDeptId
+      ) {
+        throw new Error(
+          "All fields (Name, Specialty, Experience, Phone, City, Department) are required.",
+        );
       }
 
       if (myDoctorProfile) {
@@ -277,9 +321,15 @@ function ProfilePage() {
             <div className="rounded-2xl border border-border bg-card p-6 shadow-soft text-center space-y-4">
               <div className="size-20 mx-auto rounded-full bg-primary/10 text-primary grid place-items-center font-bold text-2xl shadow-inner">
                 {activeTab === "personal" ? (
-                  firstName ? firstName[0] + (lastName[0] ?? "") : <User className="size-8" />
+                  firstName ? (
+                    firstName[0] + (lastName[0] ?? "")
+                  ) : (
+                    <User className="size-8" />
+                  )
+                ) : profileName ? (
+                  profileName.split(" ").slice(-1)[0][0]
                 ) : (
-                  profileName ? profileName.split(" ").slice(-1)[0][0] : <User className="size-8" />
+                  <User className="size-8" />
                 )}
               </div>
               <div>
@@ -321,9 +371,12 @@ function ProfilePage() {
                 <div className="flex items-start gap-3">
                   <ShieldAlert className="size-5 text-warning shrink-0 mt-0.5" />
                   <div className="space-y-1">
-                    <h4 className="text-sm font-semibold text-warning-foreground leading-tight">Verification Required</h4>
+                    <h4 className="text-sm font-semibold text-warning-foreground leading-tight">
+                      Verification Required
+                    </h4>
                     <p className="text-xs text-muted-foreground">
-                      Your doctor profile is currently pending approval by the hospital administration.
+                      Your doctor profile is currently pending approval by the hospital
+                      administration.
                     </p>
                   </div>
                 </div>
@@ -432,8 +485,6 @@ function ProfilePage() {
                     </>
                   )}
                 </button>
-
-                
               </div>
             ) : (
               // ── DOCTOR PROFESSIONAL PROFILE FORM ───────────────────────────

@@ -23,7 +23,7 @@ function fmt(n: number) {
 function QueuePage() {
   const navigate = useNavigate();
   const { user, isAuthenticated, isLoading } = useAuth();
-  
+
   useEffect(() => {
     if (!isLoading && !isAuthenticated) {
       toast.error("Authentication required: Please sign in to view the live queue.");
@@ -71,10 +71,11 @@ function QueuePage() {
 
   // Join queue
   const joinMutation = useMutation({
-    mutationFn: () =>
-      queueApi.join(activeDeptId!, `${user!.name} ${user!.last_name}`),
+    mutationFn: () => queueApi.join(activeDeptId!, `${user!.name} ${user!.last_name}`),
     onSuccess: (data) => {
-      toast.success(`Joined queue! Your number: ${fmt(data.tokenNumber)} — position ${data.position}`);
+      toast.success(
+        `Joined queue! Your number: ${fmt(data.tokenNumber)} — position ${data.position}`,
+      );
       refetchToken();
       qc.invalidateQueries({ queryKey: ["queue-status", activeDeptId] });
     },
@@ -95,9 +96,7 @@ function QueuePage() {
   const inThisQueue = myToken && activeDeptId && myToken.deptId === activeDeptId;
   const inDifferentQueue = myToken && activeDeptId && myToken.deptId !== activeDeptId;
 
-  const waitMinutes = myToken && liveQueue
-    ? Math.max(1, myToken.position * 10)
-    : null;
+  const waitMinutes = myToken && liveQueue ? Math.max(1, myToken.position * 10) : null;
 
   const progress = useMemo(() => {
     if (!liveQueue) return 0;
@@ -126,7 +125,6 @@ function QueuePage() {
   return (
     <AppLayout title="Live queue" subtitle="Real-time updates from every department.">
       <div className="grid lg:grid-cols-3 gap-6">
-
         {/* ── Main queue card ─────────────────────────────────────────────── */}
         <motion.div
           initial={{ opacity: 0, y: 8 }}
@@ -160,11 +158,17 @@ function QueuePage() {
 
             {/* Wait time / status badge */}
             {inThisQueue && myToken.status !== "done" ? (
-              <div className={cn("rounded-2xl px-4 py-3 text-right",
-                myToken.status === "serving"
-                  ? "bg-success/10 text-success"
-                  : "bg-primary/10 text-primary")}>
-                <div className="text-xs">{myToken.status === "serving" ? "Your turn!" : "Waiting"}</div>
+              <div
+                className={cn(
+                  "rounded-2xl px-4 py-3 text-right",
+                  myToken.status === "serving"
+                    ? "bg-success/10 text-success"
+                    : "bg-primary/10 text-primary",
+                )}
+              >
+                <div className="text-xs">
+                  {myToken.status === "serving" ? "Your turn!" : "Waiting"}
+                </div>
                 {myToken.status === "serving" ? (
                   <div className="text-2xl font-semibold inline-flex items-center gap-1 mt-1">
                     <CheckCircle2 className="size-5" /> Please proceed
@@ -175,13 +179,15 @@ function QueuePage() {
                   </div>
                 )}
               </div>
-            ) : liveQueue && (
-              <div className="rounded-2xl bg-muted px-4 py-3 text-right">
-                <div className="text-xs text-muted-foreground">Waiting</div>
-                <div className="text-2xl font-semibold inline-flex items-center gap-1 mt-1">
-                  <Users className="size-5" /> {liveQueue.waitingCount}
+            ) : (
+              liveQueue && (
+                <div className="rounded-2xl bg-muted px-4 py-3 text-right">
+                  <div className="text-xs text-muted-foreground">Waiting</div>
+                  <div className="text-2xl font-semibold inline-flex items-center gap-1 mt-1">
+                    <Users className="size-5" /> {liveQueue.waitingCount}
+                  </div>
                 </div>
-              </div>
+              )
             )}
           </div>
 
@@ -201,7 +207,7 @@ function QueuePage() {
                   const color = getSegmentColor(idx, liveQueue.tokens.length);
                   const isHovered = hoveredToken === token.tokenNumber;
                   const isClicked = clickedToken === token.tokenNumber;
-                  
+
                   return (
                     <div
                       key={token.tokenNumber}
@@ -209,32 +215,49 @@ function QueuePage() {
                       style={{ backgroundColor: color }}
                       onMouseEnter={() => setHoveredToken(token.tokenNumber)}
                       onMouseLeave={() => setHoveredToken(null)}
-                      onClick={() => setClickedToken(clickedToken === token.tokenNumber ? null : token.tokenNumber)}
+                      onClick={() =>
+                        setClickedToken(
+                          clickedToken === token.tokenNumber ? null : token.tokenNumber,
+                        )
+                      }
                     >
                       {/* Tooltip */}
                       {(isHovered || isClicked) && (
                         <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-56 p-3 bg-popover/95 backdrop-blur-md text-popover-foreground border border-border rounded-xl shadow-xl z-50 text-xs pointer-events-none">
                           <div className="flex items-center justify-between font-semibold text-sm mb-1.5 border-b border-border pb-1">
                             <span className="truncate max-w-[120px]">{token.patientName}</span>
-                            <span className={cn("text-[9px] px-1.5 py-0.5 rounded-full font-bold",
-                              token.status === "serving" ? "bg-success/20 text-success" :
-                              token.status === "done" ? "bg-muted text-muted-foreground" : "bg-primary/20 text-primary"
-                            )}>
+                            <span
+                              className={cn(
+                                "text-[9px] px-1.5 py-0.5 rounded-full font-bold",
+                                token.status === "serving"
+                                  ? "bg-success/20 text-success"
+                                  : token.status === "done"
+                                    ? "bg-muted text-muted-foreground"
+                                    : "bg-primary/20 text-primary",
+                              )}
+                            >
                               {token.status.toUpperCase()}
                             </span>
                           </div>
                           <div className="space-y-1 text-muted-foreground">
                             <div className="flex justify-between">
                               <span>Token:</span>
-                              <span className="font-mono text-foreground font-semibold">A-{String(token.tokenNumber).padStart(3, "0")}</span>
+                              <span className="font-mono text-foreground font-semibold">
+                                A-{String(token.tokenNumber).padStart(3, "0")}
+                              </span>
                             </div>
                             <div className="flex justify-between">
                               <span>Time:</span>
-                              <span className="font-mono text-foreground font-semibold">{formatTime(token.issuedAt)}</span>
+                              <span className="font-mono text-foreground font-semibold">
+                                {formatTime(token.issuedAt)}
+                              </span>
                             </div>
                             <div className="flex justify-between gap-2">
                               <span>Patient ID:</span>
-                              <span className="font-mono text-foreground font-semibold truncate max-w-[110px]" title={token.patientId}>
+                              <span
+                                className="font-mono text-foreground font-semibold truncate max-w-[110px]"
+                                title={token.patientId}
+                              >
                                 {token.patientId}
                               </span>
                             </div>
@@ -255,20 +278,28 @@ function QueuePage() {
           <AnimatePresence>
             {inThisQueue && myToken.position <= 1 && myToken.status === "waiting" && (
               <motion.div
-                initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
+                initial={{ opacity: 0, y: 6 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0 }}
                 className="mt-6 flex items-center gap-3 rounded-xl bg-primary/10 text-primary border border-primary/20 px-4 py-3"
               >
                 <Bell className="size-4" />
-                <span className="text-sm font-medium">You're up next — please head to the consultation area.</span>
+                <span className="text-sm font-medium">
+                  You're up next — please head to the consultation area.
+                </span>
               </motion.div>
             )}
             {inThisQueue && myToken.status === "serving" && (
               <motion.div
-                initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
+                initial={{ opacity: 0, y: 6 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0 }}
                 className="mt-6 flex items-center gap-3 rounded-xl bg-success/10 text-success border border-success/20 px-4 py-3"
               >
                 <CheckCircle2 className="size-4" />
-                <span className="text-sm font-medium">It's your turn! The doctor is ready for you.</span>
+                <span className="text-sm font-medium">
+                  It's your turn! The doctor is ready for you.
+                </span>
               </motion.div>
             )}
           </AnimatePresence>
@@ -277,13 +308,26 @@ function QueuePage() {
           {liveQueue && liveQueue.lastIssued > 0 && (
             <div className="mt-8 grid grid-cols-3 gap-3">
               {[
-                { l: "Now serving", v: liveQueue.currentServing > 0 ? fmt(liveQueue.currentServing) : "—", tone: "primary" },
-                { l: "Waiting",     v: String(liveQueue.waitingCount),                                    tone: "muted" },
-                { l: "Total today", v: String(liveQueue.lastIssued),                                      tone: "muted" },
+                {
+                  l: "Now serving",
+                  v: liveQueue.currentServing > 0 ? fmt(liveQueue.currentServing) : "—",
+                  tone: "primary",
+                },
+                { l: "Waiting", v: String(liveQueue.waitingCount), tone: "muted" },
+                { l: "Total today", v: String(liveQueue.lastIssued), tone: "muted" },
               ].map((c) => (
-                <div key={c.l} className={cn("rounded-xl border p-4 text-center",
-                  c.tone === "primary" ? "border-primary bg-primary/5" : "border-border bg-surface")}>
-                  <div className="text-[10px] uppercase tracking-widest text-muted-foreground">{c.l}</div>
+                <div
+                  key={c.l}
+                  className={cn(
+                    "rounded-xl border p-4 text-center",
+                    c.tone === "primary"
+                      ? "border-primary bg-primary/5"
+                      : "border-border bg-surface",
+                  )}
+                >
+                  <div className="text-[10px] uppercase tracking-widest text-muted-foreground">
+                    {c.l}
+                  </div>
                   <div className="mt-1 text-2xl font-semibold">{c.v}</div>
                 </div>
               ))}
@@ -293,23 +337,33 @@ function QueuePage() {
           {/* Action buttons */}
           <div className="mt-6 flex flex-wrap gap-3">
             {!isAuthenticated ? (
-              <Link to="/login"
-                className="h-11 px-5 rounded-xl bg-primary text-primary-foreground text-sm font-medium inline-flex items-center gap-2">
+              <Link
+                to="/login"
+                className="h-11 px-5 rounded-xl bg-primary text-primary-foreground text-sm font-medium inline-flex items-center gap-2"
+              >
                 <LogIn className="size-4" /> Sign in to join queue
               </Link>
             ) : inThisQueue ? (
               <button
-                onClick={() => { if (window.confirm("Leave this queue? You'll lose your place.")) leaveMutation.mutate(); }}
+                onClick={() => {
+                  if (window.confirm("Leave this queue? You'll lose your place."))
+                    leaveMutation.mutate();
+                }}
                 disabled={leaveMutation.isPending || myToken.status === "serving"}
                 className="h-11 px-5 rounded-xl border border-destructive/30 text-destructive hover:bg-destructive/10 text-sm font-medium inline-flex items-center gap-2 disabled:opacity-50"
               >
-                {leaveMutation.isPending ? <Loader2 className="size-4 animate-spin" /> : <X className="size-4" />}
+                {leaveMutation.isPending ? (
+                  <Loader2 className="size-4 animate-spin" />
+                ) : (
+                  <X className="size-4" />
+                )}
                 Leave queue
               </button>
             ) : inDifferentQueue ? (
               <div className="text-sm text-muted-foreground flex items-center gap-2 px-4 py-2.5 rounded-xl bg-muted">
                 <Bell className="size-4" />
-                You're in the <strong>{myToken.deptName}</strong> queue (#{fmt(myToken.tokenNumber)})
+                You're in the <strong>{myToken.deptName}</strong> queue (#{fmt(myToken.tokenNumber)}
+                )
               </div>
             ) : (
               <button
@@ -317,9 +371,15 @@ function QueuePage() {
                 disabled={joinMutation.isPending || !activeDeptId}
                 className="h-11 px-5 rounded-xl bg-primary text-primary-foreground text-sm font-medium inline-flex items-center gap-2 disabled:opacity-50"
               >
-                {joinMutation.isPending
-                  ? <><Loader2 className="size-4 animate-spin" /> Joining…</>
-                  : <><Users className="size-4" /> Join queue</>}
+                {joinMutation.isPending ? (
+                  <>
+                    <Loader2 className="size-4 animate-spin" /> Joining…
+                  </>
+                ) : (
+                  <>
+                    <Users className="size-4" /> Join queue
+                  </>
+                )}
               </button>
             )}
           </div>
@@ -342,10 +402,12 @@ function QueuePage() {
                   <li key={d._id}>
                     <button
                       onClick={() => setSelectedDeptId(d.departmentId)}
-                      className={cn("w-full flex items-center justify-between rounded-xl px-3 py-2.5 text-sm transition-colors",
+                      className={cn(
+                        "w-full flex items-center justify-between rounded-xl px-3 py-2.5 text-sm transition-colors",
                         activeDeptId === d.departmentId
                           ? "bg-primary/10 text-primary"
-                          : "hover:bg-muted text-foreground")}
+                          : "hover:bg-muted text-foreground",
+                      )}
                     >
                       <span className="font-medium truncate text-left">{d.deptName}</span>
                       <ChevronRight className="size-3.5 shrink-0 ml-2" />
@@ -360,10 +422,13 @@ function QueuePage() {
           <div className="rounded-2xl border border-border bg-card p-5 shadow-soft">
             <div className="text-sm font-semibold mb-4">Queue stats live</div>
             <dl className="space-y-3 text-sm">
-              <StatRow k="Now serving"     v={liveQueue?.currentServing ? fmt(liveQueue.currentServing) : "—"} />
+              <StatRow
+                k="Now serving"
+                v={liveQueue?.currentServing ? fmt(liveQueue.currentServing) : "—"}
+              />
               <StatRow k="Patients waiting" v={String(liveQueue?.waitingCount ?? 0)} />
-              <StatRow k="Total today"      v={String(liveQueue?.lastIssued ?? 0)} />
-              <StatRow k="Departments"      v={String(departments.length)} />
+              <StatRow k="Total today" v={String(liveQueue?.lastIssued ?? 0)} />
+              <StatRow k="Departments" v={String(departments.length)} />
             </dl>
             <div className="mt-3 inline-flex items-center gap-1.5 text-xs text-success font-medium">
               <span className="size-1.5 rounded-full bg-success inline-block" />
