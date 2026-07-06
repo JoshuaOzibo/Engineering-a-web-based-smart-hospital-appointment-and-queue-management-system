@@ -167,7 +167,15 @@ function DoctorAppointmentsPage() {
 
   return (
     <AppLayout
-      title={`Hello, ${matchedDoctor.doctorName}`}
+      title={
+        matchedDoctor
+          ? user
+            ? matchedDoctor.doctorName.toLowerCase().startsWith("dr.")
+              ? `Hello, Dr. ${user.name} ${user.last_name}`
+              : `Hello, ${user.name} ${user.last_name}`
+            : `Hello, ${matchedDoctor.doctorName}`
+          : "Appointments Dashboard"
+      }
       subtitle="Manage your appointment schedule, search patient records, and filter by date."
       actions={
         <button

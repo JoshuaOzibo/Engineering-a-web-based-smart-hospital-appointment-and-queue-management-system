@@ -261,7 +261,15 @@ function DoctorPage() {
 
   return (
     <AppLayout
-      title={loggedInDoctor ? ` ${loggedInDoctor.doctorName}` : "Doctor Console"}
+      title={
+        loggedInDoctor
+          ? user
+            ? loggedInDoctor.doctorName.toLowerCase().startsWith("dr.")
+              ? `Dr. ${user.name} ${user.last_name}`
+              : `${user.name} ${user.last_name}`
+            : loggedInDoctor.doctorName
+          : "Doctor Console"
+      }
       subtitle={
         loggedInDoctor
           ? `${loggedInDoctor.qualifications} · ${loggedInDoctor.city}`

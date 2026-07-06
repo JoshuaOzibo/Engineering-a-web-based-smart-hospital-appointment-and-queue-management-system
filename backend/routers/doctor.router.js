@@ -1,4 +1,5 @@
 const { DoctorModel } = require("../models/doctor.model");
+const { UserModel } = require("../models/user.model");
 const logger = require("../utils/logger");
 const doctorRouter = require("express").Router();
 
@@ -218,6 +219,34 @@ doctorRouter.patch("/updateProfile/:doctorId", async (req, res) => {
       return res.status(404).send({ msg: "Doctor not found" });
     }
     logger.success(`Doctor profile updated for Dr. ${doctor.doctorName} (${doctorId})`, { updatePayload });
+
+    // Synchronize updates to UserModel if a user account exists with this email
+    try {
+      const userUpdate = {};
+      if (updatePayload.doctorName) {
+        const cleanName = updatePayload.doctorName.replace(/^(dr\.\s*|dr\s+)/i, "").trim();
+        const parts = cleanName.split(/\s+/);
+        userUpdate.first_name = parts[0] || "";
+        userUpdate.last_name = parts.slice(1).join(" ") || "";
+      }
+      if (updatePayload.phoneNo) {
+        userUpdate.mobile = updatePayload.phoneNo.trim();
+      }
+
+      if (Object.keys(userUpdate).length > 0) {
+        const updatedUser = await UserModel.findOneAndUpdate(
+          { email: doctor.email },
+          userUpdate,
+          { new: true }
+        );
+        if (updatedUser) {
+          logger.success(`[DOCTOR UPDATE] Updated linked user account for ${doctor.email}: ${updatedUser.first_name} ${updatedUser.last_name}`);
+        }
+      }
+    } catch (userErr) {
+      logger.error(`[DOCTOR UPDATE] Failed to sync UserModel: ${userErr.message}`);
+    }
+
     res.send({ msg: "Profile updated successfully", doctor });
   } catch (error) {
     logger.error(`Error updating profile for doctor ${doctorId}: ${error.message}`);

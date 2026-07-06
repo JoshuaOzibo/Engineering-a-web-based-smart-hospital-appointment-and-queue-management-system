@@ -230,9 +230,23 @@ function ProfilePage() {
         });
       }
     },
-    onSuccess: () => {
+    onSuccess: (res) => {
       toast.success("Professional profile saved successfully!");
       qc.invalidateQueries({ queryKey: ["doctors"] });
+      qc.invalidateQueries({ queryKey: ["admin-all-doctors"] });
+      if (res && res.doctor) {
+        const cleanName = res.doctor.doctorName.replace(/^(dr\.\s*|dr\s+)/i, "").trim();
+        const parts = cleanName.split(/\s+/);
+        const first = parts[0] || "";
+        const last = parts.slice(1).join(" ") || "";
+
+        updateUser({
+          name: first,
+          last_name: last,
+          email: res.doctor.email,
+          mobile: res.doctor.phoneNo,
+        });
+      }
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -260,6 +274,8 @@ function ProfilePage() {
         mobile: res.user.mobile,
       });
       setPasswordState("");
+      qc.invalidateQueries({ queryKey: ["doctors"] });
+      qc.invalidateQueries({ queryKey: ["admin-all-doctors"] });
     },
     onError: (e: Error) => toast.error(e.message),
   });

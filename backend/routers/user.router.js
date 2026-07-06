@@ -1,4 +1,5 @@
 const { UserModel } = require("../models/user.model");
+const { DoctorModel } = require("../models/doctor.model");
 const { authenticate } = require("../middlewares/authenticator.mw");
 const userRouter = require("express").Router();
 require("dotenv").config();
@@ -107,6 +108,12 @@ userRouter.patch("/update", authenticate, async (req, res) => {
   const { first_name, last_name, mobile, email, password } = req.body;
   const { userID } = req.body; // Injected by authenticate middleware
   try {
+    const currentUser = await UserModel.findById(userID);
+    if (!currentUser) {
+      return res.status(404).send({ msg: "User not found" });
+    }
+    const oldEmail = currentUser.email;
+
     const updateData = { first_name, last_name, mobile, email };
     if (password && password.trim() !== "") {
       updateData.password = await bcrypt.hash(password, 5);
@@ -120,6 +127,24 @@ userRouter.patch("/update", authenticate, async (req, res) => {
     if (!updatedUser) {
       return res.status(404).send({ msg: "User not found" });
     }
+
+    // Synchronize updates to DoctorModel if user is a doctor
+    try {
+      const doctor = await DoctorModel.findOne({ email: oldEmail });
+      if (doctor) {
+        const hasDrPrefix = doctor.doctorName.toLowerCase().startsWith("dr.");
+        doctor.doctorName = hasDrPrefix
+          ? `Dr. ${first_name.trim()} ${last_name.trim()}`
+          : `${first_name.trim()} ${last_name.trim()}`;
+        doctor.email = email.toLowerCase().trim();
+        doctor.phoneNo = mobile.trim();
+        await doctor.save();
+        console.log(`[USER UPDATE] Updated linked doctor profile: Dr. ${doctor.doctorName} (Email: ${doctor.email})`);
+      }
+    } catch (drErr) {
+      console.error("[USER UPDATE] Failed to sync DoctorModel:", drErr.message);
+    }
+
     res.status(200).send({
       msg: "User profile updated successfully",
       user: {
