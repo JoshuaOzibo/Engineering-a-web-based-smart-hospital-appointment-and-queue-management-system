@@ -37,6 +37,10 @@ const { appointmentRouter } = require("./routers/appointment.router");
 const { queueRouter } = require("./routers/queue.router");
 const { dashboardRouter } = require("./routers/adminDash.router");
 
+app.get("/", (req, res) => {
+  res.status(200).json({ status: "ok", message: "Hospital Appointment Backend API is running" });
+});
+
 app.use("/user", userRouter);
 app.use("/department", departmentRouter);
 app.use("/doctor", doctorRouter);
@@ -44,11 +48,13 @@ app.use("/appointment", appointmentRouter);
 app.use("/queue", queueRouter);
 app.use("/admin", dashboardRouter);
 
-app.listen(process.env.port, async () => {
+const PORT = process.env.PORT || process.env.port || 10000;
+
+app.listen(PORT, async () => {
   try {
     await connection;
     console.log("Connected to DB");
-    console.log(`Listening at ${process.env.port}`);
+    console.log(`Listening at port ${PORT}`);
   } catch (error) {
     console.log("Error in DB", error);
   }
