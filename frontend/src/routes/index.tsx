@@ -75,7 +75,7 @@ function Landing() {
             </Link>
             <Link
               to="/book"
-              className="inline-flex h-10 items-center px-4 rounded-lg text-sm font-medium bg-primary text-primary-foreground hover:opacity-95"
+              className="inline-flex h-9 sm:h-10 items-center px-3 sm:px-4 rounded-lg text-xs sm:text-sm font-medium bg-primary text-primary-foreground hover:opacity-95 whitespace-nowrap shrink-0"
             >
               Book appointment
             </Link>
@@ -107,9 +107,9 @@ function Landing() {
               <div className="mt-8 flex flex-wrap gap-3">
                 <Link
                   to="/book"
-                  className="inline-flex items-center gap-2 h-12 px-5 rounded-xl bg-primary text-primary-foreground font-medium hover:opacity-95"
+                  className="inline-flex items-center gap-2 h-11 sm:h-12 px-4 sm:px-5 rounded-xl bg-primary text-primary-foreground font-medium text-xs sm:text-base hover:opacity-95 whitespace-nowrap shrink-0"
                 >
-                  <Calendar className="size-4" /> Book appointment
+                  <Calendar className="size-4 shrink-0" /> <span className="whitespace-nowrap">Book appointment</span>
                 </Link>
               </div>
               <dl className="mt-10 grid grid-cols-3 gap-6 max-w-md">

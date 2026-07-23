@@ -216,7 +216,7 @@ export function AppLayout({
       </div>
 
       {/* Mobile Bottom Navigation Bar */}
-      <nav className="lg:hidden fixed bottom-0 left-0 right-0 h-16 bg-sidebar border-t border-sidebar-border flex items-center justify-around px-2 z-50 shadow-lg">
+      <nav className="lg:hidden fixed bottom-0 left-0 right-0 h-16 bg-sidebar border-t border-sidebar-border flex items-center justify-around px-1 z-50 shadow-lg">
         {filteredNav.map((item) => {
           const active = pathname === item.to || pathname.startsWith(item.to + "/");
           return (
@@ -224,30 +224,30 @@ export function AppLayout({
               key={item.to}
               to={item.to}
               className={cn(
-                "flex flex-col items-center justify-center gap-1 text-[10px] font-semibold transition-colors",
-                active ? "text-primary" : "text-muted-foreground hover:text-foreground",
+                "flex flex-col items-center justify-center gap-0.5 px-1 py-1 text-[9px] sm:text-[10px] font-semibold transition-colors whitespace-nowrap shrink-0 min-w-0",
+                active ? "text-primary font-bold" : "text-muted-foreground hover:text-foreground",
               )}
             >
-              <item.icon className="size-5" />
-              <span>{item.label.split(" ")[0]}</span>
+              <item.icon className="size-4.5 sm:size-5 shrink-0" />
+              <span className="whitespace-nowrap truncate max-w-[65px]">{item.label.split(" ")[0]}</span>
             </Link>
           );
         })}
         {isAuthenticated ? (
           <button
             onClick={logout}
-            className="flex flex-col items-center justify-center gap-1 text-[10px] font-semibold text-muted-foreground hover:text-destructive"
+            className="flex flex-col items-center justify-center gap-0.5 px-1 py-1 text-[9px] sm:text-[10px] font-semibold text-muted-foreground hover:text-destructive whitespace-nowrap shrink-0 min-w-0"
           >
-            <LogOut className="size-5" />
-            <span>Sign Out</span>
+            <LogOut className="size-4.5 sm:size-5 shrink-0" />
+            <span className="whitespace-nowrap">Sign Out</span>
           </button>
         ) : (
           <Link
             to="/login"
-            className="flex flex-col items-center justify-center gap-1 text-[10px] font-semibold text-primary"
+            className="flex flex-col items-center justify-center gap-0.5 px-1 py-1 text-[9px] sm:text-[10px] font-semibold text-primary whitespace-nowrap shrink-0 min-w-0"
           >
-            <LogIn className="size-5" />
-            <span>Sign In</span>
+            <LogIn className="size-4.5 sm:size-5 shrink-0" />
+            <span className="whitespace-nowrap">Sign In</span>
           </Link>
         )}
       </nav>
