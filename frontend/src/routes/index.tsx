@@ -130,15 +130,15 @@ function Landing() {
               initial={{ opacity: 0, scale: 0.98 }}
               animate={{ opacity: 1, scale: 1 }}
               transition={{ duration: 0.6 }}
-              className="relative"
+              className="relative mt-4 lg:mt-0"
             >
-              <div className="relative rounded-3xl overflow-hidden shadow-card">
+              <div className="relative rounded-2xl md:rounded-3xl overflow-hidden shadow-card">
                 <img
                   src={heroImg}
                   alt="Doctor speaking with a patient at a clinic reception"
                   width={1536}
                   height={1152}
-                  className="w-full h-auto object-cover"
+                  className="w-full h-auto object-cover min-h-[240px] sm:min-h-[340px]"
                 />
               </div>
 
@@ -147,40 +147,42 @@ function Landing() {
                 initial={{ opacity: 0, y: 8 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.4 }}
-                className="absolute -left-4 bottom-6 md:-left-10 w-64 rounded-2xl bg-card border border-border shadow-card p-4"
+                className="absolute left-1 sm:-left-6 lg:-left-10 bottom-2 sm:bottom-6 w-[190px] xs:w-[210px] sm:w-64 rounded-xl sm:rounded-2xl bg-card/95 backdrop-blur border border-border shadow-xl p-2.5 sm:p-4 z-10"
               >
                 <div className="flex items-center justify-between">
-                  <div className="text-xs text-muted-foreground">Your queue</div>
-                  <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-success/15 text-success">
+                  <div className="text-[10px] sm:text-xs font-medium text-muted-foreground">Your queue</div>
+                  <span className="text-[9px] sm:text-[10px] font-semibold px-1.5 sm:px-2 py-0.5 rounded-full bg-success/15 text-success whitespace-nowrap">
                     On track
                   </span>
                 </div>
-                <div className="mt-2 flex items-end gap-2">
-                  <div className="text-3xl font-semibold text-foreground">A‑042</div>
-                  <div className="text-xs text-muted-foreground pb-1.5">Cardiology</div>
+                <div className="mt-1 sm:mt-2 flex items-baseline gap-1.5 sm:gap-2">
+                  <div className="text-xl sm:text-3xl font-bold text-foreground tracking-tight">A‑042</div>
+                  <div className="text-[10px] sm:text-xs text-muted-foreground">Cardiology</div>
                 </div>
-                <div className="mt-3 h-1.5 rounded-full bg-muted overflow-hidden">
+                <div className="mt-1.5 sm:mt-3 h-1 sm:h-1.5 rounded-full bg-muted overflow-hidden">
                   <div className="h-full w-2/3 bg-primary rounded-full" />
                 </div>
-                <div className="mt-2 flex items-center justify-between text-xs text-muted-foreground">
+                <div className="mt-1.5 sm:mt-2 flex items-center justify-between text-[10px] sm:text-xs text-muted-foreground font-medium">
                   <span className="inline-flex items-center gap-1">
-                    <Clock className="size-3" /> ~12 min
+                    <Clock className="size-3 shrink-0" /> ~12 min
                   </span>
-                  <span>3 ahead of you</span>
+                  <span>3 ahead</span>
                 </div>
               </motion.div>
 
+              {/* Floating appointment card */}
               <motion.div
                 initial={{ opacity: 0, y: 8 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.55 }}
-                className="absolute -right-2 top-8 md:-right-6 w-56 rounded-2xl bg-card border border-border shadow-card p-4"
+                className="absolute right-1 sm:-right-4 lg:-right-6 top-2 sm:top-8 w-[160px] xs:w-[175px] sm:w-56 rounded-xl sm:rounded-2xl bg-card/95 backdrop-blur border border-border shadow-xl p-2.5 sm:p-4 z-10"
               >
-                <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                  <CheckCircle2 className="size-3.5 text-success" /> Appointment confirmed
+                <div className="flex items-center gap-1.5 text-[10px] sm:text-xs font-medium text-muted-foreground">
+                  <CheckCircle2 className="size-3.5 text-success shrink-0" />
+                  <span className="truncate">Appointment confirmed</span>
                 </div>
-                <div className="mt-2 text-sm font-medium text-foreground">Dr. Mei Tanaka</div>
-                <div className="text-xs text-muted-foreground">Tue, 14 Jan · 10:30 AM</div>
+                <div className="mt-1 sm:mt-2 text-xs sm:text-sm font-bold text-foreground truncate">Dr. Mei Tanaka</div>
+                <div className="text-[10px] sm:text-xs text-muted-foreground mt-0.5">Tue, 14 Jan · 10:30 AM</div>
               </motion.div>
             </motion.div>
           </div>
