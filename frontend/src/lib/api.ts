@@ -113,6 +113,19 @@ export type UpdateDoctorProfileBody = {
   isAvailable?: boolean;
 };
 
+function generate30DaysFallbackSlots(defaultTimes: string[]) {
+  const slotsObj: Record<string, string[]> = {};
+  for (let i = 0; i < 30; i++) {
+    const d = new Date();
+    d.setDate(d.getDate() + i);
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, "0");
+    const day = String(d.getDate()).padStart(2, "0");
+    slotsObj[`${year}-${month}-${day}`] = defaultTimes;
+  }
+  return slotsObj;
+}
+
 const FALLBACK_DOCTORS: BackendDoctor[] = [
   {
     _id: "d1",
@@ -126,7 +139,7 @@ const FALLBACK_DOCTORS: BackendDoctor[] = [
     status: true,
     isAvailable: true,
     rating: 4.9,
-    slots: { "2026-07-24": ["09:00", "10:30", "14:00"] },
+    slots: generate30DaysFallbackSlots(["09:00", "10:30", "14:00", "15:30"]),
   },
   {
     _id: "d2",
@@ -140,7 +153,7 @@ const FALLBACK_DOCTORS: BackendDoctor[] = [
     status: true,
     isAvailable: true,
     rating: 4.8,
-    slots: { "2026-07-24": ["09:30", "11:00", "15:00"] },
+    slots: generate30DaysFallbackSlots(["09:30", "11:00", "15:00", "16:30"]),
   },
   {
     _id: "d3",
@@ -154,7 +167,7 @@ const FALLBACK_DOCTORS: BackendDoctor[] = [
     status: true,
     isAvailable: true,
     rating: 4.9,
-    slots: { "2026-07-24": ["10:00", "13:30", "16:00"] },
+    slots: generate30DaysFallbackSlots(["10:00", "13:30", "16:00", "17:00"]),
   },
 ];
 

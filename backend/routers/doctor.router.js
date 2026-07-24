@@ -3,15 +3,84 @@ const { UserModel } = require("../models/user.model");
 const logger = require("../utils/logger");
 const doctorRouter = require("express").Router();
 
+const DEFAULT_SLOTS = [
+  "09:00", "09:30", "10:00", "10:30",
+  "11:00", "11:30", "12:00", "14:00",
+  "14:30", "15:00", "15:30", "16:00",
+  "16:30", "17:00"
+];
+
+function getNext30Days() {
+  const dates = [];
+  for (let i = 0; i < 30; i++) {
+    const d = new Date();
+    d.setDate(d.getDate() + i);
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, "0");
+    const day = String(d.getDate()).padStart(2, "0");
+    dates.push(`${year}-${month}-${day}`);
+  }
+  return dates;
+}
+
+function generate30DaysSlotsMap() {
+  const map = new Map();
+  const days30 = getNext30Days();
+  for (const dateStr of days30) {
+    map.set(dateStr, [...DEFAULT_SLOTS]);
+  }
+  return map;
+}
+
+async function autoEnsure30DaysSlots(doctors) {
+  const days30 = getNext30Days();
+  for (const doc of doctors) {
+    if (!doc.slots) {
+      doc.slots = new Map();
+    }
+    let docUpdated = false;
+    if (!doc.isAvailable) {
+      doc.isAvailable = true;
+      docUpdated = true;
+    }
+    for (const dateStr of days30) {
+      const existing = doc.slots.get ? doc.slots.get(dateStr) : doc.slots[dateStr];
+      if (!existing || !Array.isArray(existing) || existing.length === 0) {
+        doc.slots.set(dateStr, [...DEFAULT_SLOTS]);
+        docUpdated = true;
+      }
+    }
+    if (docUpdated) {
+      await doc.save();
+    }
+  }
+}
+
 // get all
 doctorRouter.get("/allDoctor", async (req, res) => {
   try {
     let doctor = await DoctorModel.find();
-    logger.success(`Retrieved all ${doctor.length} doctors`);
+    await autoEnsure30DaysSlots(doctor);
+    doctor = await DoctorModel.find();
+    logger.success(`Retrieved all ${doctor.length} doctors with 30-day availability`);
     res.status(201).send({ total: doctor.length, doctor });
   } catch (error) {
     logger.error(`Error in getting dr info: ${error.message}`);
     res.status(500).send({ msg: "Error in getting dr info.." });
+  }
+});
+
+// Seed / ensure 30 days of availability for all doctors
+doctorRouter.post("/seed30Days", async (req, res) => {
+  try {
+    let doctor = await DoctorModel.find();
+    await autoEnsure30DaysSlots(doctor);
+    doctor = await DoctorModel.find();
+    logger.success(`Seeded 30 days availability for ${doctor.length} doctors`);
+    res.status(200).send({ msg: "30 days of doctor availability updated successfully", total: doctor.length, doctor });
+  } catch (error) {
+    logger.error(`Error seeding 30 days availability: ${error.message}`);
+    res.status(500).send({ msg: "Error seeding 30 days availability" });
   }
 });
 
@@ -33,6 +102,10 @@ doctorRouter.post("/addDoctor", async (req, res) => {
     slots, // optional — { "YYYY-MM-DD": ["HH:MM", ...] }
   } = req.body;
   try {
+    let initialSlots = slots;
+    if (!initialSlots || Object.keys(initialSlots).length === 0) {
+      initialSlots = generate30DaysSlotsMap();
+    }
     let doctor = new DoctorModel({
       doctorName,
       email,
@@ -41,11 +114,11 @@ doctorRouter.post("/addDoctor", async (req, res) => {
       phoneNo,
       city,
       departmentId,
-      status,
+      status: status !== undefined ? status : true,
       image,
-      isAvailable,
+      isAvailable: isAvailable !== undefined ? isAvailable : true,
       rating: rating || 0,
-      slots: slots || {}, // empty map by default; seed via PATCH /addSlots
+      slots: initialSlots,
     });
     await doctor.save();
     logger.success(`Doctor created successfully: Dr. ${doctorName} (Email: ${email})`);

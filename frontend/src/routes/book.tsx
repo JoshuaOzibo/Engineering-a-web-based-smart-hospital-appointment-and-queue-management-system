@@ -135,7 +135,7 @@ function BookPage() {
   const [cityFilter, setCityFilter] = useState("All locations");
   const [query, setQuery] = useState("");
   const [doctor, setDoctor] = useState<BackendDoctor | null>(null);
-  const [date, setDate] = useState<string>(todayPlus(1));
+  const [date, setDate] = useState<string>(todayPlus(0));
   const [slot, setSlot] = useState<string>("");
 
   // Patient details (pre-filled from auth)
@@ -355,44 +355,46 @@ function BookPage() {
         <div className="grid lg:grid-cols-3 gap-6">
           <div className="lg:col-span-2 grid gap-6">
             {/* Date picker */}
-            <Card title="Choose an Appointment Date">
-              <div className="grid grid-cols-3 sm:grid-cols-7 gap-2">
-                {nextDays(14).map((d) => {
-                  const slotsOnDay = doctor.slots?.[d.iso];
-                  const hasFreeSlots = Array.isArray(slotsOnDay) && slotsOnDay.length > 0;
+            <Card title="Choose an Appointment Date (Next 30 Days)">
+              <div className="max-h-80 overflow-y-auto pr-1">
+                <div className="grid grid-cols-3 sm:grid-cols-7 gap-2">
+                  {nextDays(30).map((d) => {
+                    const slotsOnDay = doctor.slots?.[d.iso];
+                    const hasFreeSlots = Array.isArray(slotsOnDay) && slotsOnDay.length > 0;
 
-                  return (
-                    <button
-                      key={d.iso}
-                      onClick={() => {
-                        setDate(d.iso);
-                        setSlot("");
-                      }}
-                      disabled={!hasFreeSlots}
-                      className={cn(
-                        "rounded-xl border p-2 text-center transition-all flex flex-col justify-between h-22 select-none",
-                        date === d.iso
-                          ? "border-primary bg-primary/5 ring-2 ring-primary/20 text-primary"
-                          : hasFreeSlots
-                            ? "border-border bg-card hover:bg-muted text-foreground"
-                            : "border-border bg-surface opacity-35 cursor-not-allowed",
-                      )}
-                    >
-                      <span className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground">
-                        {d.dow}
-                      </span>
-                      <span className="text-xl font-extrabold tracking-tight my-0.5">{d.day}</span>
-                      <span className="text-[9px] text-muted-foreground font-semibold">
-                        {d.mon}
-                      </span>
-                      {hasFreeSlots && (
-                        <span className="mt-1 text-[8px] text-success font-bold uppercase tracking-wide">
-                          {slotsOnDay.length} slots
+                    return (
+                      <button
+                        key={d.iso}
+                        onClick={() => {
+                          setDate(d.iso);
+                          setSlot("");
+                        }}
+                        disabled={!hasFreeSlots}
+                        className={cn(
+                          "rounded-xl border p-2 text-center transition-all flex flex-col justify-between h-22 select-none",
+                          date === d.iso
+                            ? "border-primary bg-primary/5 ring-2 ring-primary/20 text-primary"
+                            : hasFreeSlots
+                              ? "border-border bg-card hover:bg-muted text-foreground"
+                              : "border-border bg-surface opacity-35 cursor-not-allowed",
+                        )}
+                      >
+                        <span className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground">
+                          {d.dow}
                         </span>
-                      )}
-                    </button>
-                  );
-                })}
+                        <span className="text-xl font-extrabold tracking-tight my-0.5">{d.day}</span>
+                        <span className="text-[9px] text-muted-foreground font-semibold">
+                          {d.mon}
+                        </span>
+                        {hasFreeSlots && (
+                          <span className="mt-1 text-[8px] text-success font-bold uppercase tracking-wide">
+                            {slotsOnDay.length} slots
+                          </span>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
             </Card>
 
@@ -824,7 +826,10 @@ function Info({ label, value }: { label: string; value: string }) {
 function todayPlus(n: number) {
   const d = new Date();
   d.setDate(d.getDate() + n);
-  return d.toISOString().slice(0, 10);
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
 }
 
 function nextDays(n: number) {
@@ -833,8 +838,11 @@ function nextDays(n: number) {
   return Array.from({ length: n }).map((_, i) => {
     const d = new Date();
     d.setDate(d.getDate() + i);
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, "0");
+    const day = String(d.getDate()).padStart(2, "0");
     return {
-      iso: d.toISOString().slice(0, 10),
+      iso: `${year}-${month}-${day}`,
       dow: dows[d.getDay()],
       day: d.getDate(),
       mon: mons[d.getMonth()],

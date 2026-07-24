@@ -75,7 +75,10 @@ export const Route = createFileRoute("/doctor")({
 const todayPlus = (days: number) => {
   const d = new Date();
   d.setDate(d.getDate() + days);
-  return d.toISOString().split("T")[0];
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
 };
 
 const formatDate = (date: string) =>
@@ -85,7 +88,11 @@ const isToday = (date: string | undefined): boolean => {
   try {
     const d = new Date(date);
     const today = new Date();
-    return d.toDateString() === today.toDateString();
+    return (
+      d.getDate() === today.getDate() &&
+      d.getMonth() === today.getMonth() &&
+      d.getFullYear() === today.getFullYear()
+    );
   } catch {
     return false;
   }
@@ -118,7 +125,7 @@ function DoctorPage() {
   const [selectedDoctorId, setSelectedDoctorId] = useState<string>("");
 
   // Slot management state
-  const [slotDate, setSlotDate] = useState(todayPlus(1));
+  const [slotDate, setSlotDate] = useState(todayPlus(0));
   const [selectedSlots, setSelectedSlots] = useState<string[]>([]);
 
   // Retrieve admin session
